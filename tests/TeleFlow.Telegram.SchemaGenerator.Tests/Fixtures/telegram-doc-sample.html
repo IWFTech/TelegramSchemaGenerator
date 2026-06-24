@@ -1,0 +1,260 @@
+<!doctype html>
+<html>
+<body>
+  <h3><a class="anchor" name="recent-changes" href="#recent-changes"></a>Recent changes</h3>
+  <h4><a class="anchor" name="june-11-2026" href="#june-11-2026"></a>June 11, 2026</h4>
+  <p><strong>Bot API 10.1</strong></p>
+  <ul>
+    <li>Added the method <a href="#sendmessage">sendMessage</a>.</li>
+  </ul>
+
+  <h3><a class="anchor" name="getting-updates" href="#getting-updates"></a>Getting updates</h3>
+  <h4><a class="anchor" name="update" href="#update"></a>Update</h4>
+  <p>This object represents an incoming update. At most one of the optional fields can be present in any given update.</p>
+  <table class="table">
+    <thead>
+      <tr>
+        <th>Field</th>
+        <th>Type</th>
+        <th>Description</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>update_id</td>
+        <td>Integer</td>
+        <td>The update's unique identifier.</td>
+      </tr>
+      <tr>
+        <td>message</td>
+        <td>Message</td>
+        <td>Optional. New incoming message of any kind.</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <h4><a class="anchor" name="getupdates" href="#getupdates"></a>getUpdates</h4>
+  <p>Use this method to receive incoming updates using long polling. Returns an Array of <a href="#update">Update</a> objects.</p>
+  <blockquote><p>Notes 1. This method will not work if an outgoing webhook is set up.</p></blockquote>
+  <table class="table">
+    <thead>
+      <tr>
+        <th>Parameter</th>
+        <th>Type</th>
+        <th>Required</th>
+        <th>Description</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>offset</td>
+        <td>Integer</td>
+        <td>Optional</td>
+        <td>Identifier of the first update to be returned.</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <h3><a class="anchor" name="available-types" href="#available-types"></a>Available types</h3>
+  <h4><a class="anchor" name="botname" href="#botname"></a>BotName</h4>
+  <p>This object represents the bot's name.</p>
+  <table class="table">
+    <thead>
+      <tr>
+        <th>Field</th>
+        <th>Type</th>
+        <th>Description</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>name</td>
+        <td>String</td>
+        <td>The bot's name</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <h4><a class="anchor" name="callbackgame" href="#callbackgame"></a>CallbackGame</h4>
+  <p>A placeholder, currently holds no information.</p>
+
+  <h4><a class="anchor" name="message" href="#message"></a>Message</h4>
+  <p>This object represents a message.</p>
+  <table class="table">
+    <thead>
+      <tr>
+        <th>Field</th>
+        <th>Type</th>
+        <th>Description</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>message_id</td>
+        <td>Integer</td>
+        <td>Unique message identifier.</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <h4><a class="anchor" name="inlinekeyboardmarkup" href="#inlinekeyboardmarkup"></a>InlineKeyboardMarkup</h4>
+  <p>This object represents an inline keyboard.</p>
+  <table class="table">
+    <thead>
+      <tr>
+        <th>Field</th>
+        <th>Type</th>
+        <th>Description</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>inline_keyboard</td>
+        <td>Array of String</td>
+        <td>Button rows.</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <h4><a class="anchor" name="replykeyboardmarkup" href="#replykeyboardmarkup"></a>ReplyKeyboardMarkup</h4>
+  <p>This object represents a custom keyboard with reply options.</p>
+
+  <h4><a class="anchor" name="replykeyboardremove" href="#replykeyboardremove"></a>ReplyKeyboardRemove</h4>
+  <p>Upon receiving a message with this object, Telegram clients will remove the current custom keyboard.</p>
+
+  <h4><a class="anchor" name="forcereply" href="#forcereply"></a>ForceReply</h4>
+  <p>Upon receiving a message with this object, Telegram clients will display a reply interface to the user.</p>
+
+  <h3><a class="anchor" name="available-methods" href="#available-methods"></a>Available methods</h3>
+  <h4><a class="anchor" name="getme" href="#getme"></a>getMe</h4>
+  <p>A simple method for testing your bot's authentication token. Requires no parameters. Returns basic information about the bot in form of a <a href="#user">User</a> object.</p>
+
+  <h4><a class="anchor" name="getmyname" href="#getmyname"></a>getMyName</h4>
+  <p>Use this method to get the current bot name for the given user language. Returns <a href="#botname">BotName</a> on success.</p>
+  <table class="table">
+    <thead>
+      <tr>
+        <th>Parameter</th>
+        <th>Type</th>
+        <th>Required</th>
+        <th>Description</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>language_code</td>
+        <td>String</td>
+        <td>Optional</td>
+        <td>A two-letter ISO 639-1 language code or an empty string</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <h4><a class="anchor" name="getwebhookinfo" href="#getwebhookinfo"></a>getWebhookInfo</h4>
+  <p>Use this method to get current webhook status. Requires no parameters. On success, returns a <a href="#webhookinfo">WebhookInfo</a> object.</p>
+
+  <h4><a class="anchor" name="sendmessage" href="#sendmessage"></a>sendMessage</h4>
+  <p>Use this method to send text messages. On success, the sent <a href="#message">Message</a> is returned.</p>
+  <table class="table">
+    <thead>
+      <tr>
+        <th>Parameter</th>
+        <th>Type</th>
+        <th>Required</th>
+        <th>Description</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>chat_id</td>
+        <td>Integer or String</td>
+        <td>Yes</td>
+        <td>Unique identifier for the target chat.</td>
+      </tr>
+      <tr>
+        <td>text</td>
+        <td>String</td>
+        <td>Yes</td>
+        <td>Text of the message to be sent.</td>
+      </tr>
+      <tr>
+        <td>reply_markup</td>
+        <td>InlineKeyboardMarkup or ReplyKeyboardMarkup or ReplyKeyboardRemove or ForceReply</td>
+        <td>Optional</td>
+        <td>Additional interface options.</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <h3><a class="anchor" name="games" href="#games"></a>Games</h3>
+  <h4><a class="anchor" name="setgamescore" href="#setgamescore"></a>setGameScore</h4>
+  <p>Use this method to set the score of the specified user in a game message. On success, if the message is not an inline message, the <a href="#message">Message</a> is returned, otherwise <em>True</em> is returned.</p>
+  <table class="table">
+    <thead>
+      <tr>
+        <th>Parameter</th>
+        <th>Type</th>
+        <th>Required</th>
+        <th>Description</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>user_id</td>
+        <td>Integer</td>
+        <td>Yes</td>
+        <td>User identifier.</td>
+      </tr>
+      <tr>
+        <td>score</td>
+        <td>Integer</td>
+        <td>Yes</td>
+        <td>New score.</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <h4><a class="anchor" name="user" href="#user"></a>User</h4>
+  <p>This object represents a Telegram user or bot.</p>
+  <table class="table">
+    <thead>
+      <tr>
+        <th>Field</th>
+        <th>Type</th>
+        <th>Description</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>id</td>
+        <td>Integer</td>
+        <td>Unique identifier for this user or bot.</td>
+      </tr>
+      <tr>
+        <td>is_bot</td>
+        <td>Boolean</td>
+        <td>True, if this user is a bot.</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <h4><a class="anchor" name="webhookinfo" href="#webhookinfo"></a>WebhookInfo</h4>
+  <p>This object represents webhook info.</p>
+  <table class="table">
+    <thead>
+      <tr>
+        <th>Field</th>
+        <th>Type</th>
+        <th>Description</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>url</td>
+        <td>String</td>
+        <td>Webhook URL.</td>
+      </tr>
+    </tbody>
+  </table>
+</body>
+</html>

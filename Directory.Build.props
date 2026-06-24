@@ -1,0 +1,16 @@
+<Project>
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <LangVersion>14</LangVersion>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <EnableNETAnalyzers>true</EnableNETAnalyzers>
+    <AnalysisLevel>latest</AnalysisLevel>
+    <AnalysisMode>Default</AnalysisMode>
+    <EnforceCodeStyleInBuild>true</EnforceCodeStyleInBuild>
+    <Authors>IWF Tech</Authors>
+    <Company>IWF Tech</Company>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <PackageTags>teleflow;telegram;schema;generator</PackageTags>
+  </PropertyGroup>
+</Project>
