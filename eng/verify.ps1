@@ -6,6 +6,7 @@ $ErrorActionPreference = "Stop"
 
 $repositoryRoot = Split-Path -Parent $PSScriptRoot
 $solutionPath = Join-Path $repositoryRoot "TeleFlow.Telegram.SchemaGenerator.sln"
+$versionBumpCheckPath = Join-Path $PSScriptRoot "check-version-bump.ps1"
 
 function Invoke-CheckedDotNet {
     param([string[]] $Arguments)
@@ -17,6 +18,7 @@ function Invoke-CheckedDotNet {
     }
 }
 
+& $versionBumpCheckPath
 Invoke-CheckedDotNet @("restore", $solutionPath)
 Invoke-CheckedDotNet @(
     "format",
