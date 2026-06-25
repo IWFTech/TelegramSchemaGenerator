@@ -149,7 +149,6 @@ internal static class UnionCodeGenerator
         lines.Add("        }");
         lines.Add(string.Empty);
         lines.Add("        using var document = JsonDocument.ParseValue(ref reader);");
-        lines.Add("        var json = document.RootElement.GetRawText();");
         lines.Add(string.Empty);
 
         AppendPropertyDiscriminatorCases(lines, name, cases);
@@ -186,7 +185,7 @@ internal static class UnionCodeGenerator
                 if (discriminatorGroup.Count() == 1)
                 {
                     var unionCase = discriminatorGroup.Single();
-                    lines.Add($"                    return {name}.From(JsonSerializer.Deserialize<{QualifyCaseType(unionCase.CSharpType)}>(json, options)");
+                    lines.Add($"                    return {name}.From(document.RootElement.Deserialize<{QualifyCaseType(unionCase.CSharpType)}>(options)");
                     lines.Add($"                        ?? throw new JsonException(\"Unable to deserialize {name} as {unionCase.RawType}.\"));");
                 }
                 else
@@ -200,7 +199,7 @@ internal static class UnionCodeGenerator
                             unionCase.RequiredProperties.Select(static property => $"document.RootElement.TryGetProperty(\"{property}\", out _)"));
                         lines.Add($"                    if ({checks})");
                         lines.Add("                    {");
-                        lines.Add($"                        return {name}.From(JsonSerializer.Deserialize<{QualifyCaseType(unionCase.CSharpType)}>(json, options)");
+                        lines.Add($"                        return {name}.From(document.RootElement.Deserialize<{QualifyCaseType(unionCase.CSharpType)}>(options)");
                         lines.Add($"                            ?? throw new JsonException(\"Unable to deserialize {name} as {unionCase.RawType}.\"));");
                         lines.Add("                    }");
                     }
@@ -239,7 +238,7 @@ internal static class UnionCodeGenerator
 
             lines.Add($"        if ({checks})");
             lines.Add("        {");
-            lines.Add($"            return {name}.From(JsonSerializer.Deserialize<{QualifyCaseType(unionCase.CSharpType)}>(json, options)");
+            lines.Add($"            return {name}.From(document.RootElement.Deserialize<{QualifyCaseType(unionCase.CSharpType)}>(options)");
             lines.Add($"                ?? throw new JsonException(\"Unable to deserialize {name} as {unionCase.RawType}.\"));");
             lines.Add("        }");
             lines.Add(string.Empty);
@@ -258,7 +257,7 @@ internal static class UnionCodeGenerator
             lines.Add("            dateElement.TryGetInt64(out var date) &&");
             lines.Add("            date == 0)");
             lines.Add("        {");
-            lines.Add($"            return {name}.From(JsonSerializer.Deserialize<{QualifyCaseType(unionCase.CSharpType)}>(json, options)");
+            lines.Add($"            return {name}.From(document.RootElement.Deserialize<{QualifyCaseType(unionCase.CSharpType)}>(options)");
             lines.Add($"                ?? throw new JsonException(\"Unable to deserialize {name} as {unionCase.RawType}.\"));");
             lines.Add("        }");
             lines.Add(string.Empty);
@@ -272,7 +271,7 @@ internal static class UnionCodeGenerator
     {
         foreach (var unionCase in cases.Where(static unionCase => unionCase.MatchStrategy == "fallback-object"))
         {
-            lines.Add($"        return {name}.From(JsonSerializer.Deserialize<{QualifyCaseType(unionCase.CSharpType)}>(json, options)");
+            lines.Add($"        return {name}.From(document.RootElement.Deserialize<{QualifyCaseType(unionCase.CSharpType)}>(options)");
             lines.Add($"            ?? throw new JsonException(\"Unable to deserialize {name} as {unionCase.RawType}.\"));");
         }
     }
