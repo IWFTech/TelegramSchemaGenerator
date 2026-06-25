@@ -22,11 +22,38 @@ function Invoke-CheckedDotNet {
     }
 }
 
-function Get-GeneratedHeaderMetadata {
+function Get-GeneratedMetadata {
     param([string] $Root)
 
     if ([string]::IsNullOrWhiteSpace($Root)) {
         return $null
+    }
+
+    $candidateManifestPaths = @(
+        "src\TeleFlow.Telegram.Schema\telegram-bot-api.manifest.json",
+        "TeleFlow.Telegram.Schema\telegram-bot-api.manifest.json")
+
+    foreach ($relativePath in $candidateManifestPaths) {
+        $path = Join-Path $Root $relativePath
+        if (-not (Test-Path -LiteralPath $path)) {
+            continue
+        }
+
+        $manifest = Get-Content -Raw -LiteralPath $path | ConvertFrom-Json
+        $version = [string] $manifest.telegramBotApi.version
+        $release = [string] $manifest.telegramBotApi.releasedAt
+        $changelog = [string] $manifest.telegramBotApi.changelogUrl
+
+        if ([string]::IsNullOrWhiteSpace($version)) {
+            throw "Could not read Telegram Bot API version from '$path'."
+        }
+
+        return [ordered]@{
+            Version = $version
+            ReleaseDate = $release
+            ChangelogUrl = $changelog
+            SourcePath = $path
+        }
     }
 
     $candidatePaths = @(
@@ -56,7 +83,7 @@ function Get-GeneratedHeaderMetadata {
         }
     }
 
-    throw "Could not find generated Update.g.cs under '$Root'."
+    throw "Could not find generated Telegram Bot API manifest or Update.g.cs under '$Root'."
 }
 
 $tempDirectory = Join-Path ([System.IO.Path]::GetTempPath()) ("teleflow-schema-check-" + [System.Guid]::NewGuid().ToString("N"))
@@ -86,7 +113,7 @@ try {
         SourceSha256 = [string] $raw.Metadata.SourceSha256
     }
 
-    $current = Get-GeneratedHeaderMetadata $TeleFlowRoot
+    $current = Get-GeneratedMetadata $TeleFlowRoot
     $hasUpdate = $current.Version -ne $latest.Version
 
     $result = [ordered]@{
