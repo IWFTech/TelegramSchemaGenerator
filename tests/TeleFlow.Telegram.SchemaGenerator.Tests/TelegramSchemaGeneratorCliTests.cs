@@ -93,7 +93,7 @@ public sealed class TelegramSchemaGeneratorCliTests
 
         startInfo.ArgumentList.Add("run");
         startInfo.ArgumentList.Add("--project");
-        startInfo.ArgumentList.Add(Path.Combine(RepositoryRoot, "TeleFlow.Telegram.SchemaGenerator.csproj"));
+        startInfo.ArgumentList.Add(Path.Combine(RepositoryRoot, "src", "TeleFlow.Telegram.SchemaGenerator", "TeleFlow.Telegram.SchemaGenerator.csproj"));
         startInfo.ArgumentList.Add("--");
         startInfo.ArgumentList.Add(command);
 
@@ -120,7 +120,7 @@ public sealed class TelegramSchemaGeneratorCliTests
     {
         var directory = new DirectoryInfo(AppContext.BaseDirectory);
 
-        while (directory is not null && !IoFile.Exists(Path.Combine(directory.FullName, "TeleFlow.Telegram.SchemaGenerator.csproj")))
+        while (directory is not null && !IoFile.Exists(Path.Combine(directory.FullName, "TeleFlow.Telegram.SchemaGenerator.sln")))
         {
             directory = directory.Parent;
         }
