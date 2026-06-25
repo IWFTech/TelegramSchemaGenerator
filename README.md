@@ -36,6 +36,8 @@ Snapshot metadata:
 
 Generated `.g.cs` files must repeat the normalized snapshot provenance in their auto-generated header, including the Telegram Bot API version and changelog anchor used to build the schema.
 
+The main TeleFlow repository does not keep Telegram documentation snapshots. `eng/update-teleflow-schema.ps1` uses temporary raw and normalized snapshots, then writes only generated C# output and the public Telegram Bot API badge metadata.
+
 The runtime Telegram output is intentionally separate from `TeleFlow.Telegram.Schema`:
 - schema DTOs, methods, responses, and abstractions are written to `TeleFlow.Telegram.Schema`
 - generated `ITelegramClient` method extensions are written to `TeleFlow.Telegram.Client/Generated/Methods`
@@ -50,22 +52,22 @@ The examples below assume the main TeleFlow repository is available next to this
 $teleflow = "..\TeleFlow"
 ```
 
-Parse official Telegram Bot API docs into the checked-in raw snapshot:
+Parse official Telegram Bot API docs into a local raw snapshot:
 
 ```powershell
-dotnet run --project .\src\TeleFlow.Telegram.SchemaGenerator\TeleFlow.Telegram.SchemaGenerator.csproj -- parse-docs --url https://core.telegram.org/bots/api --output "$teleflow\schema\telegram-bot-api\raw\telegram-bot-api.raw.json"
+dotnet run --project .\src\TeleFlow.Telegram.SchemaGenerator\TeleFlow.Telegram.SchemaGenerator.csproj -- parse-docs --url https://core.telegram.org/bots/api --output ".\artifacts\telegram-bot-api\raw\telegram-bot-api.raw.json"
 ```
 
 Normalize the raw snapshot:
 
 ```powershell
-dotnet run --project .\src\TeleFlow.Telegram.SchemaGenerator\TeleFlow.Telegram.SchemaGenerator.csproj -- normalize --input "$teleflow\schema\telegram-bot-api\raw\telegram-bot-api.raw.json" --output "$teleflow\schema\telegram-bot-api\normalized\telegram-bot-api.normalized.json"
+dotnet run --project .\src\TeleFlow.Telegram.SchemaGenerator\TeleFlow.Telegram.SchemaGenerator.csproj -- normalize --input ".\artifacts\telegram-bot-api\raw\telegram-bot-api.raw.json" --output ".\artifacts\telegram-bot-api\normalized\telegram-bot-api.normalized.json"
 ```
 
 Generate the schema project and Telegram runtime client extensions:
 
 ```powershell
-dotnet run --project .\src\TeleFlow.Telegram.SchemaGenerator\TeleFlow.Telegram.SchemaGenerator.csproj -- generate --input "$teleflow\schema\telegram-bot-api\normalized\telegram-bot-api.normalized.json" --generated-output "$teleflow\src\TeleFlow.Telegram.Schema" --telegram-output "$teleflow\src\TeleFlow.Telegram.Client"
+dotnet run --project .\src\TeleFlow.Telegram.SchemaGenerator\TeleFlow.Telegram.SchemaGenerator.csproj -- generate --input ".\artifacts\telegram-bot-api\normalized\telegram-bot-api.normalized.json" --generated-output "$teleflow\src\TeleFlow.Telegram.Schema" --telegram-output "$teleflow\src\TeleFlow.Telegram.Client"
 ```
 
 Run the full pipeline:
@@ -90,6 +92,11 @@ This runs restore, formatting verification, build, and tests for the solution.
 
 When a new Telegram Bot API version is detected, the workflow can generate a TeleFlow update branch and open a pull request.
 
+The generated TeleFlow pull request updates:
+- generated Telegram schema output
+- generated Telegram client extension output
+- `docs/badges/telegram-bot-api.json`
+
 Required repository secret:
 
 ```text
@@ -105,11 +112,10 @@ The token must be able to push branches and open pull requests in `IWFTech/TeleF
 The monitor does not publish NuGet packages. It only creates a reviewable generated-output PR.
 
 ## Review Order
-1. raw snapshot diff
-2. normalized snapshot diff
-3. generator tool changes
-4. generated schema output
-5. generated Telegram runtime client extension output
+1. generator tool changes
+2. generated schema output
+3. generated Telegram runtime client extension output
+4. Telegram Bot API badge metadata
 
 ## Version Bumps
 - Bump `SchemaVersion` when extraction or normalization semantics change.

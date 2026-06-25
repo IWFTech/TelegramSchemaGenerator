@@ -10,3 +10,4 @@ TeleFlow Telegram Schema Generator follows SemVer for the generator CLI, schema 
 - Solution-based `src/` and `tests/` repository layout.
 - Local verification script at `eng/verify.ps1`.
 - Telegram Bot API monitor workflow foundation for opening generated schema update pull requests in `IWFTech/TeleFlow`.
+- Generated TeleFlow badge metadata updates for the supported Telegram Bot API version.
