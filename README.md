@@ -133,6 +133,11 @@ The monitor does not publish NuGet packages. It only creates a reviewable genera
 - Do not bump versions only because Telegram documentation content changed.
 - The current generated manifest contract is `SchemaVersion = 6` and `GeneratorVersion = 9`.
 
+`eng/check-version-bump.ps1` enforces this policy in CI for pull requests:
+- changes under `Extraction/`, `Input/`, `Models/`, `Normalization/`, `Parsing/`, `Validation/`, or `Writers/` require a `SchemaVersion` bump
+- changes under `Generation/` require a `GeneratorVersion` bump
+- docs, workflow, script, and test-only changes do not require a version bump by themselves
+
 ## Maintenance Expectations
 - Treat `raw -> normalized -> generated` as one compiler pipeline.
 - Keep document parsing, schema extraction, normalization, and generation logically separate.
