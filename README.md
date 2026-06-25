@@ -92,6 +92,8 @@ This runs restore, formatting verification, build, and tests for the solution.
 
 When a new Telegram Bot API version is detected, the workflow can generate a TeleFlow update branch and open a pull request.
 
+The workflow also supports manual generated-output refreshes. Run `Telegram Bot API Monitor` from GitHub Actions with `force_regenerate=true` when the Telegram Bot API version stayed the same but generator output semantics changed. This reparses the current Telegram docs, regenerates TeleFlow output with the current generator, builds TeleFlow, and opens a refresh pull request only when the generated output has a diff.
+
 The generated TeleFlow pull request updates:
 - generated Telegram schema output
 - generated Telegram client extension output

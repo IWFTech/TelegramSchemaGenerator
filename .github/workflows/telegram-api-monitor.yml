@@ -4,6 +4,12 @@ on:
   schedule:
     - cron: "17 * * * *"
   workflow_dispatch:
+    inputs:
+      force_regenerate:
+        description: "Regenerate TeleFlow output even when Telegram Bot API version did not change"
+        type: boolean
+        required: false
+        default: false
 
 permissions:
   contents: read
@@ -56,6 +62,7 @@ jobs:
         shell: pwsh
         run: |
           $result = Get-Content -Raw -LiteralPath telegram-bot-api-check.json | ConvertFrom-Json
+          $forceRegenerate = "${{ github.event_name == 'workflow_dispatch' && inputs.force_regenerate == true }}"
           @"
           ## Telegram Bot API monitor
 
@@ -63,51 +70,99 @@ jobs:
           Latest Telegram version: $($result.Latest.Version)
           Latest release date: $($result.Latest.ReleaseDate)
           Update available: $($result.HasUpdate)
+          Force regenerate: $forceRegenerate
           "@ | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Append
 
-      - name: Stop when no update is available
-        if: ${{ steps.check.outputs.has_update != 'true' }}
+      - name: Resolve generation plan
+        id: plan
+        shell: pwsh
+        run: |
+          $hasUpdate = "${{ steps.check.outputs.has_update }}" -eq "true"
+          $forceRegenerate = "${{ github.event_name == 'workflow_dispatch' && inputs.force_regenerate == true }}" -eq "true"
+          $shouldGenerate = $hasUpdate -or $forceRegenerate
+          $currentVersion = "${{ steps.check.outputs.current_version }}"
+          $latestVersion = "${{ steps.check.outputs.latest_version }}"
+          $latestReleaseDate = "${{ steps.check.outputs.latest_release_date }}"
+          $latestChangelogAnchor = "${{ steps.check.outputs.latest_changelog_anchor }}"
+
+          if ($hasUpdate) {
+            $branch = "schema/update-telegram-bot-api-$latestVersion"
+            $commitMessage = "schema: update Telegram Bot API to $latestVersion"
+            $title = "schema: update Telegram Bot API to $latestVersion"
+            $summary = @"
+          - update generated Telegram schema and client output
+          - update Telegram Bot API badge metadata
+          - Telegram Bot API: $currentVersion -> $latestVersion
+          - release date: $latestReleaseDate
+          - changelog anchor: $latestChangelogAnchor
+          "@
+          }
+          elseif ($forceRegenerate) {
+            $branch = "schema/refresh-generated-output-${{ github.run_number }}"
+            $commitMessage = "chore(schema): refresh generated Telegram output"
+            $title = "chore(schema): refresh generated Telegram output"
+            $summary = @"
+          - refresh generated Telegram schema and client output with the current generator
+          - update Telegram Bot API badge metadata when generated metadata changes
+          - Telegram Bot API version remains $currentVersion
+          "@
+          }
+          else {
+            $branch = ""
+            $commitMessage = ""
+            $title = ""
+            $summary = "- no generated output refresh is required"
+          }
+
+          "should_generate=$($shouldGenerate.ToString().ToLowerInvariant())" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
+          "branch=$branch" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
+          "commit_message=$commitMessage" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
+          "title=$title" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
+
+          @"
+          pr_body<<PR_BODY
+          ## Summary
+          $summary
+
+          ## Validation
+          - generated with IWFTech/TelegramSchemaGenerator
+          - ran dotnet build ./TeleFlow.sln -c Release
+          PR_BODY
+          "@ | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
+
+      - name: Stop when no update or refresh is requested
+        if: ${{ steps.plan.outputs.should_generate != 'true' }}
         shell: pwsh
         run: Write-Host "TeleFlow already targets Telegram Bot API ${{ steps.check.outputs.current_version }}."
 
       - name: Fail clearly when update token is missing
-        if: ${{ steps.check.outputs.has_update == 'true' && env.TELEFLOW_UPDATE_TOKEN == '' }}
+        if: ${{ steps.plan.outputs.should_generate == 'true' && env.TELEFLOW_UPDATE_TOKEN == '' }}
         shell: pwsh
         run: |
-          throw "Telegram Bot API ${{ steps.check.outputs.latest_version }} is available, but TELEFLOW_UPDATE_TOKEN is not configured."
+          throw "TeleFlow generated output refresh is required, but TELEFLOW_UPDATE_TOKEN is not configured."
 
       - name: Generate TeleFlow schema update
-        if: ${{ steps.check.outputs.has_update == 'true' && env.TELEFLOW_UPDATE_TOKEN != '' }}
+        if: ${{ steps.plan.outputs.should_generate == 'true' && env.TELEFLOW_UPDATE_TOKEN != '' }}
         shell: pwsh
         working-directory: generator
         run: ./eng/update-teleflow-schema.ps1 -TeleFlowRoot ../teleflow
 
       - name: Build TeleFlow after generation
-        if: ${{ steps.check.outputs.has_update == 'true' && env.TELEFLOW_UPDATE_TOKEN != '' }}
+        if: ${{ steps.plan.outputs.should_generate == 'true' && env.TELEFLOW_UPDATE_TOKEN != '' }}
         shell: pwsh
         working-directory: teleflow
         run: dotnet build ./TeleFlow.sln -c Release /nodeReuse:false
 
       - name: Create TeleFlow update PR
-        if: ${{ steps.check.outputs.has_update == 'true' && env.TELEFLOW_UPDATE_TOKEN != '' }}
+        if: ${{ steps.plan.outputs.should_generate == 'true' && env.TELEFLOW_UPDATE_TOKEN != '' }}
         uses: peter-evans/create-pull-request@v8
         with:
           path: teleflow
           token: ${{ env.TELEFLOW_UPDATE_TOKEN }}
-          branch: schema/update-telegram-bot-api-${{ steps.check.outputs.latest_version }}
-          commit-message: "schema: update Telegram Bot API to ${{ steps.check.outputs.latest_version }}"
-          title: "schema: update Telegram Bot API to ${{ steps.check.outputs.latest_version }}"
-          body: |
-            ## Summary
-            - update generated Telegram schema and client output
-            - update Telegram Bot API badge metadata
-            - Telegram Bot API: `${{ steps.check.outputs.current_version }}` -> `${{ steps.check.outputs.latest_version }}`
-            - release date: `${{ steps.check.outputs.latest_release_date }}`
-            - changelog anchor: `${{ steps.check.outputs.latest_changelog_anchor }}`
-
-            ## Validation
-            - generated with `IWFTech/TelegramSchemaGenerator`
-            - ran `dotnet build ./TeleFlow.sln -c Release`
+          branch: ${{ steps.plan.outputs.branch }}
+          commit-message: ${{ steps.plan.outputs.commit_message }}
+          title: ${{ steps.plan.outputs.title }}
+          body: ${{ steps.plan.outputs.pr_body }}
           labels: |
             area:schema
             priority:p1
