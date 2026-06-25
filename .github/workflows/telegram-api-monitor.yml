@@ -100,6 +100,7 @@ jobs:
           body: |
             ## Summary
             - update generated Telegram schema and client output
+            - update Telegram Bot API badge metadata
             - Telegram Bot API: `${{ steps.check.outputs.current_version }}` -> `${{ steps.check.outputs.latest_version }}`
             - release date: `${{ steps.check.outputs.latest_release_date }}`
             - changelog anchor: `${{ steps.check.outputs.latest_changelog_anchor }}`

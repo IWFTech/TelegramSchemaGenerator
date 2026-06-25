@@ -38,8 +38,44 @@ function Resolve-TeleFlowPath {
     throw "Could not resolve $Description under '$teleflowFullPath'."
 }
 
-$rawOutput = Join-Path $teleflowFullPath "schema\telegram-bot-api\raw\telegram-bot-api.raw.json"
-$normalizedOutput = Join-Path $teleflowFullPath "schema\telegram-bot-api\normalized\telegram-bot-api.normalized.json"
+function Get-GeneratedHeaderMetadata {
+    param([string] $HeaderPath)
+
+    $contents = Get-Content -Raw -LiteralPath $HeaderPath
+    $version = [regex]::Match($contents, "Telegram Bot API version:\s*(?<value>[^\r\n]+)").Groups["value"].Value.Trim()
+
+    if ([string]::IsNullOrWhiteSpace($version)) {
+        throw "Could not read Telegram Bot API version from '$HeaderPath'."
+    }
+
+    return [ordered]@{
+        Version = $version
+    }
+}
+
+function Update-TelegramBotApiBadge {
+    param([string] $SchemaOutput)
+
+    $updateTypePath = Join-Path $SchemaOutput "Types\Update.g.cs"
+    if (-not (Test-Path -LiteralPath $updateTypePath)) {
+        throw "Could not find generated Update.g.cs at '$updateTypePath'."
+    }
+
+    $metadata = Get-GeneratedHeaderMetadata $updateTypePath
+    $badgePath = Join-Path $teleflowFullPath "docs\badges\telegram-bot-api.json"
+    New-Item -ItemType Directory -Path (Split-Path -Parent $badgePath) -Force | Out-Null
+
+    $badge = [ordered]@{
+        schemaVersion = 1
+        label = "Telegram Bot API"
+        message = $metadata.Version
+        color = "26A5E4"
+        namedLogo = "telegram"
+    }
+
+    $badge | ConvertTo-Json -Depth 4 | Set-Content -LiteralPath $badgePath -Encoding UTF8
+}
+
 $schemaOutput = Resolve-TeleFlowPath @(
     "src\TeleFlow.Telegram.Schema",
     "TeleFlow.Telegram.Schema") "TeleFlow.Telegram.Schema output"
@@ -47,24 +83,34 @@ $telegramOutput = Resolve-TeleFlowPath @(
     "src\TeleFlow.Telegram.Client",
     "TeleFlow.Telegram.Client") "TeleFlow.Telegram.Client output"
 
-New-Item -ItemType Directory -Path (Split-Path -Parent $rawOutput) -Force | Out-Null
-New-Item -ItemType Directory -Path (Split-Path -Parent $normalizedOutput) -Force | Out-Null
+$tempDirectory = Join-Path ([System.IO.Path]::GetTempPath()) ("teleflow-schema-update-" + [System.Guid]::NewGuid().ToString("N"))
+New-Item -ItemType Directory -Path $tempDirectory | Out-Null
 
-Invoke-CheckedDotNet @(
-    "run",
-    "--project",
-    $generatorProject,
-    "-c",
-    $Configuration,
-    "--",
-    "all",
-    "--url",
-    $SourceUrl,
-    "--raw-output",
-    $rawOutput,
-    "--normalized-output",
-    $normalizedOutput,
-    "--generated-output",
-    $schemaOutput,
-    "--telegram-output",
-    $telegramOutput)
+try {
+    $rawOutput = Join-Path $tempDirectory "telegram-bot-api.raw.json"
+    $normalizedOutput = Join-Path $tempDirectory "telegram-bot-api.normalized.json"
+
+    Invoke-CheckedDotNet @(
+        "run",
+        "--project",
+        $generatorProject,
+        "-c",
+        $Configuration,
+        "--",
+        "all",
+        "--url",
+        $SourceUrl,
+        "--raw-output",
+        $rawOutput,
+        "--normalized-output",
+        $normalizedOutput,
+        "--generated-output",
+        $schemaOutput,
+        "--telegram-output",
+        $telegramOutput)
+
+    Update-TelegramBotApiBadge $schemaOutput
+}
+finally {
+    Remove-Item -LiteralPath $tempDirectory -Recurse -Force -ErrorAction SilentlyContinue
+}
