@@ -12,13 +12,10 @@ This repository owns Telegram Bot API documentation parsing, schema extraction, 
 Run from the repository root:
 
 ```powershell
-dotnet restore ./TeleFlow.Telegram.SchemaGenerator.csproj
-dotnet restore ./tests/TeleFlow.Telegram.SchemaGenerator.Tests/TeleFlow.Telegram.SchemaGenerator.Tests.csproj
-dotnet format whitespace ./TeleFlow.Telegram.SchemaGenerator.csproj --verify-no-changes --no-restore --verbosity minimal
-dotnet format style ./TeleFlow.Telegram.SchemaGenerator.csproj --verify-no-changes --no-restore --verbosity minimal
-dotnet build ./TeleFlow.Telegram.SchemaGenerator.csproj -c Release --no-restore /nodeReuse:false
-dotnet test ./tests/TeleFlow.Telegram.SchemaGenerator.Tests/TeleFlow.Telegram.SchemaGenerator.Tests.csproj -c Release --no-restore /nodeReuse:false --logger "console;verbosity=minimal"
+./eng/verify.ps1
 ```
+
+The script runs restore, whitespace formatting verification, style formatting verification, build, and tests for `TeleFlow.Telegram.SchemaGenerator.sln`.
 
 ## Pull Request Expectations
 

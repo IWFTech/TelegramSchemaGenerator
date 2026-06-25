@@ -1,0 +1,112 @@
+name: Telegram Bot API Monitor
+
+on:
+  schedule:
+    - cron: "17 * * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: telegram-api-monitor
+  cancel-in-progress: false
+
+env:
+  DOTNET_CLI_TELEMETRY_OPTOUT: "1"
+  DOTNET_NOLOGO: "1"
+  NUGET_PACKAGES: ${{ github.workspace }}/.nuget/packages
+  TELEFLOW_UPDATE_TOKEN: ${{ secrets.TELEFLOW_UPDATE_TOKEN }}
+
+jobs:
+  monitor:
+    name: Check Telegram Bot API
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout generator
+        uses: actions/checkout@v7
+        with:
+          path: generator
+
+      - name: Checkout TeleFlow
+        uses: actions/checkout@v7
+        with:
+          repository: IWFTech/TeleFlow
+          ref: main
+          path: teleflow
+          token: ${{ env.TELEFLOW_UPDATE_TOKEN || github.token }}
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: 10.0.x
+
+      - name: Check latest Telegram Bot API
+        id: check
+        shell: pwsh
+        working-directory: generator
+        run: |
+          ./eng/check-telegram-bot-api.ps1 `
+            -TeleFlowRoot ../teleflow `
+            -OutputPath ../telegram-bot-api-check.json
+
+      - name: Publish check summary
+        shell: pwsh
+        run: |
+          $result = Get-Content -Raw -LiteralPath telegram-bot-api-check.json | ConvertFrom-Json
+          @"
+          ## Telegram Bot API monitor
+
+          Current TeleFlow version: $($result.Current.Version)
+          Latest Telegram version: $($result.Latest.Version)
+          Latest release date: $($result.Latest.ReleaseDate)
+          Update available: $($result.HasUpdate)
+          "@ | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Append
+
+      - name: Stop when no update is available
+        if: ${{ steps.check.outputs.has_update != 'true' }}
+        shell: pwsh
+        run: Write-Host "TeleFlow already targets Telegram Bot API ${{ steps.check.outputs.current_version }}."
+
+      - name: Fail clearly when update token is missing
+        if: ${{ steps.check.outputs.has_update == 'true' && env.TELEFLOW_UPDATE_TOKEN == '' }}
+        shell: pwsh
+        run: |
+          throw "Telegram Bot API ${{ steps.check.outputs.latest_version }} is available, but TELEFLOW_UPDATE_TOKEN is not configured."
+
+      - name: Generate TeleFlow schema update
+        if: ${{ steps.check.outputs.has_update == 'true' && env.TELEFLOW_UPDATE_TOKEN != '' }}
+        shell: pwsh
+        working-directory: generator
+        run: ./eng/update-teleflow-schema.ps1 -TeleFlowRoot ../teleflow
+
+      - name: Build TeleFlow after generation
+        if: ${{ steps.check.outputs.has_update == 'true' && env.TELEFLOW_UPDATE_TOKEN != '' }}
+        shell: pwsh
+        working-directory: teleflow
+        run: dotnet build ./TeleFlow.sln -c Release /nodeReuse:false
+
+      - name: Create TeleFlow update PR
+        if: ${{ steps.check.outputs.has_update == 'true' && env.TELEFLOW_UPDATE_TOKEN != '' }}
+        uses: peter-evans/create-pull-request@v8
+        with:
+          path: teleflow
+          token: ${{ env.TELEFLOW_UPDATE_TOKEN }}
+          branch: schema/update-telegram-bot-api-${{ steps.check.outputs.latest_version }}
+          commit-message: "schema: update Telegram Bot API to ${{ steps.check.outputs.latest_version }}"
+          title: "schema: update Telegram Bot API to ${{ steps.check.outputs.latest_version }}"
+          body: |
+            ## Summary
+            - update generated Telegram schema and client output
+            - Telegram Bot API: `${{ steps.check.outputs.current_version }}` -> `${{ steps.check.outputs.latest_version }}`
+            - release date: `${{ steps.check.outputs.latest_release_date }}`
+            - changelog anchor: `${{ steps.check.outputs.latest_changelog_anchor }}`
+
+            ## Validation
+            - generated with `IWFTech/TelegramSchemaGenerator`
+            - ran `dotnet build ./TeleFlow.sln -c Release`
+          labels: |
+            area:schema
+            priority:p1

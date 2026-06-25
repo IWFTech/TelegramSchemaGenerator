@@ -9,6 +9,15 @@ updates:
       time: "06:00"
       timezone: "Europe/Moscow"
     open-pull-requests-limit: 5
+    groups:
+      runtime-dependencies:
+        patterns:
+          - "AngleSharp"
+      test-dependencies:
+        patterns:
+          - "Microsoft.NET.Test.Sdk"
+          - "xunit*"
+          - "coverlet*"
 
   - package-ecosystem: "github-actions"
     directory: "/"
@@ -16,5 +25,9 @@ updates:
       interval: "weekly"
       day: "monday"
       time: "06:30"
-      timezone: "Europe/Moscow"
+    timezone: "Europe/Moscow"
     open-pull-requests-limit: 5
+    groups:
+      github-actions:
+        patterns:
+          - "*"

@@ -36,7 +36,7 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
 
       - name: Setup .NET
         uses: actions/setup-dotnet@v5
@@ -45,32 +45,20 @@ jobs:
 
       - name: Restore
         shell: pwsh
-        run: dotnet restore ./TeleFlow.Telegram.SchemaGenerator.csproj
-
-      - name: Restore tests
-        shell: pwsh
-        run: dotnet restore ./tests/TeleFlow.Telegram.SchemaGenerator.Tests/TeleFlow.Telegram.SchemaGenerator.Tests.csproj
+        run: dotnet restore ./TeleFlow.Telegram.SchemaGenerator.sln
 
       - name: Verify whitespace formatting
         shell: pwsh
-        run: dotnet format whitespace ./TeleFlow.Telegram.SchemaGenerator.csproj --verify-no-changes --no-restore --verbosity minimal
-
-      - name: Verify test whitespace formatting
-        shell: pwsh
-        run: dotnet format whitespace ./tests/TeleFlow.Telegram.SchemaGenerator.Tests/TeleFlow.Telegram.SchemaGenerator.Tests.csproj --verify-no-changes --no-restore --verbosity minimal
+        run: dotnet format whitespace ./TeleFlow.Telegram.SchemaGenerator.sln --verify-no-changes --no-restore --verbosity minimal
 
       - name: Verify style formatting
         shell: pwsh
-        run: dotnet format style ./TeleFlow.Telegram.SchemaGenerator.csproj --verify-no-changes --no-restore --verbosity minimal
-
-      - name: Verify test style formatting
-        shell: pwsh
-        run: dotnet format style ./tests/TeleFlow.Telegram.SchemaGenerator.Tests/TeleFlow.Telegram.SchemaGenerator.Tests.csproj --verify-no-changes --no-restore --verbosity minimal
+        run: dotnet format style ./TeleFlow.Telegram.SchemaGenerator.sln --verify-no-changes --no-restore --verbosity minimal
 
       - name: Build
         shell: pwsh
-        run: dotnet build ./TeleFlow.Telegram.SchemaGenerator.csproj -c Release --no-restore /nodeReuse:false
+        run: dotnet build ./TeleFlow.Telegram.SchemaGenerator.sln -c Release --no-restore /nodeReuse:false
 
       - name: Test
         shell: pwsh
-        run: dotnet test ./tests/TeleFlow.Telegram.SchemaGenerator.Tests/TeleFlow.Telegram.SchemaGenerator.Tests.csproj -c Release --no-restore /nodeReuse:false --logger "console;verbosity=minimal"
+        run: dotnet test ./TeleFlow.Telegram.SchemaGenerator.sln -c Release --no-build --no-restore /nodeReuse:false --logger "console;verbosity=minimal"

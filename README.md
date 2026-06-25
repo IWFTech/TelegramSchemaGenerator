@@ -1,11 +1,26 @@
 # TeleFlow Telegram Schema Generator
 
+[![CI](https://github.com/IWFTech/TelegramSchemaGenerator/actions/workflows/ci.yml/badge.svg)](https://github.com/IWFTech/TelegramSchemaGenerator/actions/workflows/ci.yml)
+[![CodeQL](https://github.com/IWFTech/TelegramSchemaGenerator/actions/workflows/codeql.yml/badge.svg)](https://github.com/IWFTech/TelegramSchemaGenerator/actions/workflows/codeql.yml)
+[![Telegram Bot API](https://img.shields.io/badge/Telegram%20Bot%20API-10.1-26A5E4)](https://core.telegram.org/bots/api-changelog#june-11-2026)
+[![License](https://img.shields.io/github/license/IWFTech/TelegramSchemaGenerator)](LICENSE)
+[![.NET](https://img.shields.io/badge/.NET-10.0-512BD4)](https://dotnet.microsoft.com/)
+
 The generator is a strict Telegram docs compiler:
 - `parse-docs` parses Telegram HTML into a structured raw snapshot
 - `normalize` extracts and validates schema sections, type expressions, naming, and abstractions
 - `generate` writes the checked-in schema output and, when requested, the runtime Telegram client extension output
 
 The pipeline is fail-closed. It must not silently skip schema sections or guess unresolved type expressions.
+
+## Repository Layout
+
+```text
+src/TeleFlow.Telegram.SchemaGenerator/      CLI, parser, normalizer, generators
+tests/TeleFlow.Telegram.SchemaGenerator.Tests/  CLI and regression tests
+eng/                                      local verification and automation scripts
+.github/workflows/                       CI, CodeQL, Telegram Bot API monitor
+```
 
 Snapshot metadata:
 - `raw` snapshot contains:
@@ -38,26 +53,56 @@ $teleflow = "..\TeleFlow"
 Parse official Telegram Bot API docs into the checked-in raw snapshot:
 
 ```powershell
-dotnet run -- parse-docs --url https://core.telegram.org/bots/api --output "$teleflow\schema\telegram-bot-api\raw\telegram-bot-api.raw.json"
+dotnet run --project .\src\TeleFlow.Telegram.SchemaGenerator\TeleFlow.Telegram.SchemaGenerator.csproj -- parse-docs --url https://core.telegram.org/bots/api --output "$teleflow\schema\telegram-bot-api\raw\telegram-bot-api.raw.json"
 ```
 
 Normalize the raw snapshot:
 
 ```powershell
-dotnet run -- normalize --input "$teleflow\schema\telegram-bot-api\raw\telegram-bot-api.raw.json" --output "$teleflow\schema\telegram-bot-api\normalized\telegram-bot-api.normalized.json"
+dotnet run --project .\src\TeleFlow.Telegram.SchemaGenerator\TeleFlow.Telegram.SchemaGenerator.csproj -- normalize --input "$teleflow\schema\telegram-bot-api\raw\telegram-bot-api.raw.json" --output "$teleflow\schema\telegram-bot-api\normalized\telegram-bot-api.normalized.json"
 ```
 
 Generate the schema project and Telegram runtime client extensions:
 
 ```powershell
-dotnet run -- generate --input "$teleflow\schema\telegram-bot-api\normalized\telegram-bot-api.normalized.json" --generated-output "$teleflow\TeleFlow.Telegram.Schema" --telegram-output "$teleflow\TeleFlow.Telegram.Client"
+dotnet run --project .\src\TeleFlow.Telegram.SchemaGenerator\TeleFlow.Telegram.SchemaGenerator.csproj -- generate --input "$teleflow\schema\telegram-bot-api\normalized\telegram-bot-api.normalized.json" --generated-output "$teleflow\src\TeleFlow.Telegram.Schema" --telegram-output "$teleflow\src\TeleFlow.Telegram.Client"
 ```
 
 Run the full pipeline:
 
 ```powershell
-dotnet run -- all --url https://core.telegram.org/bots/api --raw-output "$teleflow\schema\telegram-bot-api\raw\telegram-bot-api.raw.json" --normalized-output "$teleflow\schema\telegram-bot-api\normalized\telegram-bot-api.normalized.json" --generated-output "$teleflow\TeleFlow.Telegram.Schema" --telegram-output "$teleflow\TeleFlow.Telegram.Client"
+.\eng\update-teleflow-schema.ps1 -TeleFlowRoot $teleflow
 ```
+
+## Verification
+
+Run the full local verification pipeline:
+
+```powershell
+.\eng\verify.ps1
+```
+
+This runs restore, formatting verification, build, and tests for the solution.
+
+## Telegram Bot API Monitor
+
+`Telegram Bot API Monitor` runs on a schedule and compares the latest official Telegram docs with the generated output currently checked into `IWFTech/TeleFlow`.
+
+When a new Telegram Bot API version is detected, the workflow can generate a TeleFlow update branch and open a pull request.
+
+Required repository secret:
+
+```text
+TELEFLOW_UPDATE_TOKEN
+```
+
+Use a fine-grained GitHub token scoped only to `IWFTech/TeleFlow` with:
+- Contents: read and write
+- Pull requests: read and write
+
+The token must be able to push branches and open pull requests in `IWFTech/TeleFlow`.
+
+The monitor does not publish NuGet packages. It only creates a reviewable generated-output PR.
 
 ## Review Order
 1. raw snapshot diff
