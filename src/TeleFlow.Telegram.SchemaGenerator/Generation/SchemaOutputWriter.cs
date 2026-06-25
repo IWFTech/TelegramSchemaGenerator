@@ -53,6 +53,8 @@ internal static class SchemaOutputWriter
                 MethodsGenerator.Generate(schema, method, abstractionNames),
                 Utf8WithoutBom.Instance);
         }
+
+        TelegramBotApiManifestWriter.Write(root, schema.Metadata);
     }
 
     private static void Validate(NormalizedTelegramSchema schema)

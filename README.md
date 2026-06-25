@@ -34,9 +34,16 @@ Snapshot metadata:
   - `SchemaVersion`
   - `GeneratorVersion`
 
-Generated `.g.cs` files must repeat the normalized snapshot provenance in their auto-generated header, including the Telegram Bot API version and changelog anchor used to build the schema.
+Generated `.g.cs` files keep a stable auto-generated header with the output kind, source URL, Telegram Bot API version, release date, and changelog anchor.
 
-The main TeleFlow repository does not keep Telegram documentation snapshots. `eng/update-teleflow-schema.ps1` uses temporary raw and normalized snapshots, then writes only generated C# output and the public Telegram Bot API badge metadata.
+Volatile provenance is written once to `TeleFlow.Telegram.Schema/telegram-bot-api.manifest.json`:
+- source capture time
+- source SHA-256
+- Telegram Bot API version metadata
+- schema pipeline version
+- generator output contract version
+
+The main TeleFlow repository does not keep Telegram documentation snapshots. `eng/update-teleflow-schema.ps1` uses temporary raw and normalized snapshots, then writes generated C# output, the generated manifest, and the public Telegram Bot API badge metadata.
 
 The runtime Telegram output is intentionally separate from `TeleFlow.Telegram.Schema`:
 - schema DTOs, methods, responses, and abstractions are written to `TeleFlow.Telegram.Schema`
@@ -97,6 +104,7 @@ The workflow also supports manual generated-output refreshes. Run `Telegram Bot 
 The generated TeleFlow pull request updates:
 - generated Telegram schema output
 - generated Telegram client extension output
+- `src/TeleFlow.Telegram.Schema/telegram-bot-api.manifest.json`
 - `docs/badges/telegram-bot-api.json`
 
 Required repository secret:
@@ -123,13 +131,14 @@ The monitor does not publish NuGet packages. It only creates a reviewable genera
 - Bump `SchemaVersion` when extraction or normalization semantics change.
 - Bump `GeneratorVersion` when generated C# output contract changes.
 - Do not bump versions only because Telegram documentation content changed.
-- The current metadata/header contract is `SchemaVersion = 6` and `GeneratorVersion = 8`.
+- The current generated manifest contract is `SchemaVersion = 6` and `GeneratorVersion = 9`.
 
 ## Maintenance Expectations
 - Treat `raw -> normalized -> generated` as one compiler pipeline.
 - Keep document parsing, schema extraction, normalization, and generation logically separate.
 - If Telegram docs introduce a new section shape, update the parser or extractor explicitly instead of adding a silent fallback.
-- Keep generated header emission centralized so provenance format cannot drift between output kinds.
+- Keep generated header emission centralized so stable header format cannot drift between output kinds.
+- Keep generated manifest emission centralized so volatile provenance does not create avoidable per-file diffs.
 - Keep `ClientMethod` header emission consistent with schema output headers.
 - Keep Telegram Bot API version metadata extracted from the official changelog section; do not hardcode it in generated files.
 - Keep named Telegram union families as typed case wrappers with explicit match metadata.

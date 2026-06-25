@@ -38,30 +38,31 @@ function Resolve-TeleFlowPath {
     throw "Could not resolve $Description under '$teleflowFullPath'."
 }
 
-function Get-GeneratedHeaderMetadata {
-    param([string] $HeaderPath)
+function Get-GeneratedManifestMetadata {
+    param([string] $SchemaOutput)
 
-    $contents = Get-Content -Raw -LiteralPath $HeaderPath
-    $version = [regex]::Match($contents, "Telegram Bot API version:\s*(?<value>[^\r\n]+)").Groups["value"].Value.Trim()
+    $manifestPath = Join-Path $SchemaOutput "telegram-bot-api.manifest.json"
+    if (-not (Test-Path -LiteralPath $manifestPath)) {
+        throw "Could not find generated Telegram Bot API manifest at '$manifestPath'."
+    }
+
+    $manifest = Get-Content -Raw -LiteralPath $manifestPath | ConvertFrom-Json
+    $version = [string] $manifest.telegramBotApi.version
 
     if ([string]::IsNullOrWhiteSpace($version)) {
-        throw "Could not read Telegram Bot API version from '$HeaderPath'."
+        throw "Could not read Telegram Bot API version from '$manifestPath'."
     }
 
     return [ordered]@{
         Version = $version
+        SourcePath = $manifestPath
     }
 }
 
 function Update-TelegramBotApiBadge {
     param([string] $SchemaOutput)
 
-    $updateTypePath = Join-Path $SchemaOutput "Types\Update.g.cs"
-    if (-not (Test-Path -LiteralPath $updateTypePath)) {
-        throw "Could not find generated Update.g.cs at '$updateTypePath'."
-    }
-
-    $metadata = Get-GeneratedHeaderMetadata $updateTypePath
+    $metadata = Get-GeneratedManifestMetadata $SchemaOutput
     $badgePath = Join-Path $teleflowFullPath "docs\badges\telegram-bot-api.json"
     New-Item -ItemType Directory -Path (Split-Path -Parent $badgePath) -Force | Out-Null
 
