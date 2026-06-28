@@ -59,12 +59,14 @@ internal static class TelegramSchemaNormalizer
             .ToArray();
 
         var abstractions = BuildAbstractions(types, methods, knownTypeNames);
+        var constantGroups = TelegramConstantGroupExtractor.Extract(types);
 
         return new NormalizedTelegramSchema(
             SchemaMetadataFactory.CreateNormalized(raw.Metadata),
             types,
             methods,
-            abstractions);
+            abstractions,
+            constantGroups);
     }
 
     private static NormalizedTelegramType NormalizeType(RawTelegramSection section, IReadOnlySet<string> knownTypeNames)

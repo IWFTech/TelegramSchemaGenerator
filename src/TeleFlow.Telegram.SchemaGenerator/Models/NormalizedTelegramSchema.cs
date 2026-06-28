@@ -4,7 +4,8 @@ internal sealed record NormalizedTelegramSchema(
     TelegramSchemaMetadata Metadata,
     IReadOnlyList<NormalizedTelegramType> Types,
     IReadOnlyList<NormalizedTelegramMethod> Methods,
-    IReadOnlyList<NormalizedTelegramAbstraction> Abstractions);
+    IReadOnlyList<NormalizedTelegramAbstraction> Abstractions,
+    IReadOnlyList<NormalizedTelegramConstantGroup> ConstantGroups);
 
 internal sealed record NormalizedTelegramType(
     string Name,
@@ -63,3 +64,17 @@ internal sealed record NormalizedTelegramAbstraction(
     string ValueShape,
     IReadOnlyList<string> Members,
     IReadOnlyList<NormalizedTelegramUnionCase> UnionCases);
+
+internal sealed record NormalizedTelegramConstantGroup(
+    string Name,
+    string Summary,
+    IReadOnlyList<NormalizedTelegramConstantSource> Sources,
+    IReadOnlyList<NormalizedTelegramConstantValue> Values);
+
+internal sealed record NormalizedTelegramConstantSource(
+    string TypeName,
+    string TelegramName);
+
+internal sealed record NormalizedTelegramConstantValue(
+    string Name,
+    string TelegramValue);

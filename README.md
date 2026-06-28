@@ -47,6 +47,7 @@ The main TeleFlow repository does not keep Telegram documentation snapshots. `en
 
 The runtime Telegram output is intentionally separate from `TeleFlow.Telegram.Schema`:
 - schema DTOs, methods, responses, and abstractions are written to `TeleFlow.Telegram.Schema`
+- generated Bot API constants are written to `TeleFlow.Telegram.Schema/Constants`
 - generated `ITelegramClient` method extensions are written to `TeleFlow.Telegram.Client/Generated/Methods`
 - generated known update-type constants are written to `TeleFlow.Telegram.Client/Generated/TelegramUpdateTypes.g.cs`
 - client extensions are thin convenience methods that construct generated method models, apply supported bot defaults, and call `ITelegramClient.SendAsync(...)`
@@ -131,7 +132,7 @@ The monitor does not publish NuGet packages. It only creates a reviewable genera
 - Bump `SchemaVersion` when extraction or normalization semantics change.
 - Bump `GeneratorVersion` when generated C# output contract changes.
 - Do not bump versions only because Telegram documentation content changed.
-- The current generated manifest contract is `SchemaVersion = 6` and `GeneratorVersion = 9`.
+- The current generated manifest contract is `SchemaVersion = 7` and `GeneratorVersion = 10`.
 
 `eng/check-version-bump.ps1` enforces this policy in CI for pull requests:
 - changes under `Extraction/`, `Input/`, `Models/`, `Normalization/`, `Parsing/`, `Validation/`, or `Writers/` require a `SchemaVersion` bump
@@ -151,6 +152,7 @@ The monitor does not publish NuGet packages. It only creates a reviewable genera
 - Keep anonymous union wrappers typed; do not reintroduce public `object Value`.
 - Keep `InputFile` as an upload pseudo-type in schema and leave multipart execution to `TeleFlow.Telegram`.
 - Normalize upload-capable `String` fields that mention `attach://` or multipart upload into `InputFile or String`.
+- Keep Bot API string value catalogs generated as forward-compatible constants; do not hand-maintain framework-owned duplicates.
 - Keep public generated declarations readable; prefer normal `using` directives or aliases over public `global::...` qualification.
 - Keep generated runtime client extensions transport-free and dispatcher-free: no retry, HTTP, polling, or context-specific logic belongs there.
 - Bot default application is allowed in generated runtime extensions because it is part of the `TeleFlow.Telegram` method-construction DX layer, not schema or transport behavior.
