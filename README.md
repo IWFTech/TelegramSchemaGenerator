@@ -52,6 +52,8 @@ The runtime Telegram output is intentionally separate from `TeleFlow.Telegram.Sc
 - generated known update-type constants are written to `TeleFlow.Telegram.Client/Generated/TelegramUpdateTypes.g.cs`
 - client extensions are thin convenience methods that construct generated method models, apply supported bot defaults, and call `ITelegramClient.SendAsync(...)`
 
+Telegram object unions remain generated as typed wrapper models. For example, `ChatMember` remains a wrapper over `ChatMemberOwner`, `ChatMemberAdministrator`, `ChatMemberMember`, and the other concrete DTO cases. Known Telegram string discriminator values are generated separately as forward-compatible constants, for example `ChatMemberStatuses.Administrator`, `BotCommandScopeTypes.ChatMember`, and `PassportElementErrorSources.File`.
+
 ## Commands
 
 The examples below assume the main TeleFlow repository is available next to this repository:
@@ -132,7 +134,7 @@ The monitor does not publish NuGet packages. It only creates a reviewable genera
 - Bump `SchemaVersion` when extraction or normalization semantics change.
 - Bump `GeneratorVersion` when generated C# output contract changes.
 - Do not bump versions only because Telegram documentation content changed.
-- The current generated manifest contract is `SchemaVersion = 7` and `GeneratorVersion = 10`.
+- The current generated manifest contract is `SchemaVersion = 8` and `GeneratorVersion = 11`.
 
 `eng/check-version-bump.ps1` enforces this policy in CI for pull requests:
 - changes under `Extraction/`, `Input/`, `Models/`, `Normalization/`, `Parsing/`, `Validation/`, or `Writers/` require a `SchemaVersion` bump
@@ -149,6 +151,7 @@ The monitor does not publish NuGet packages. It only creates a reviewable genera
 - Keep Telegram Bot API version metadata extracted from the official changelog section; do not hardcode it in generated files.
 - Keep named Telegram union families as typed case wrappers with explicit match metadata.
 - Keep discriminator literal values in normalized snapshots; do not derive them from generated C# names.
+- Generate grouped constants for known discriminator literal values such as `status`, `type`, and `source`; keep DTO properties as strings for forward compatibility with new Telegram values.
 - Keep anonymous union wrappers typed; do not reintroduce public `object Value`.
 - Keep `InputFile` as an upload pseudo-type in schema and leave multipart execution to `TeleFlow.Telegram`.
 - Normalize upload-capable `String` fields that mention `attach://` or multipart upload into `InputFile or String`.

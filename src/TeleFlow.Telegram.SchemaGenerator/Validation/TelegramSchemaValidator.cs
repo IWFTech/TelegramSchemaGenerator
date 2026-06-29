@@ -170,16 +170,16 @@ internal static class TelegramSchemaValidator
                 }
             }
 
-            var duplicateValues = group.Values
-                .GroupBy(static value => value.TelegramValue, StringComparer.Ordinal)
+            var duplicateValueNames = group.Values
+                .GroupBy(static value => value.Name, StringComparer.Ordinal)
                 .Where(static valueGroup => valueGroup.Count() > 1)
                 .Select(static valueGroup => valueGroup.Key)
                 .ToArray();
 
-            if (duplicateValues.Length > 0)
+            if (duplicateValueNames.Length > 0)
             {
                 throw new InvalidOperationException(
-                    $"The constant group '{group.Name}' contains duplicate Telegram values: " + string.Join(", ", duplicateValues));
+                    $"The constant group '{group.Name}' contains duplicate value names: " + string.Join(", ", duplicateValueNames));
             }
 
             foreach (var value in group.Values)

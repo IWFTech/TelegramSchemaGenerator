@@ -9,6 +9,31 @@ public sealed class TelegramSchemaGeneratorCliTests
 {
     private static readonly string RepositoryRoot = ResolveRepositoryRoot();
 
+    private static readonly ConstantGroupExpectation[] ConstantGroupExpectations =
+    [
+        new("ButtonStyles", ["danger", "primary", "success"]),
+        new("BotCommandScopeTypes", ["all_private_chats", "chat_member", "default"]),
+        new("ChatMemberStatuses", ["administrator", "creator", "member"]),
+        new("ChatTypes", ["channel", "group", "private", "sender", "supergroup"]),
+        new("PassportElementErrorSources", ["data", "file"]),
+        new("ReactionTypes", ["custom_emoji", "emoji", "paid"])
+    ];
+
+    private static readonly ConstantGroupEntryExpectation[] ConstantGroupEntryExpectations =
+    [
+        new(
+            "InlineQueryResultTypes",
+            [
+                ("CachedPhoto", "photo"),
+                ("Photo", "photo")
+            ])
+    ];
+
+    private static readonly string[] MissingConstantGroupNames =
+    [
+        "ReactionTypeTypes"
+    ];
+
     [Fact]
     public void ParseDocs_Command_ParsesRepresentativeHtmlFixture()
     {
@@ -93,18 +118,20 @@ public sealed class TelegramSchemaGeneratorCliTests
             using var document = JsonDocument.Parse(IoFile.ReadAllText(normalizedOutputPath));
             var constantGroups = document.RootElement.GetProperty("ConstantGroups");
 
-            AssertConstantGroup(
-                constantGroups,
-                "ButtonStyles",
-                ["danger", "primary", "success"]);
-            AssertConstantGroup(
-                constantGroups,
-                "ChatTypes",
-                ["channel", "group", "private", "sender", "supergroup"]);
-            AssertConstantGroup(
-                constantGroups,
-                "ReactionTypes",
-                ["custom_emoji", "emoji", "paid"]);
+            foreach (var expectation in ConstantGroupExpectations)
+            {
+                AssertConstantGroup(constantGroups, expectation.Name, expectation.TelegramValues);
+            }
+
+            foreach (var expectation in ConstantGroupEntryExpectations)
+            {
+                AssertConstantGroupEntries(constantGroups, expectation.Name, expectation.Values);
+            }
+
+            foreach (var name in MissingConstantGroupNames)
+            {
+                AssertNoConstantGroup(constantGroups, name);
+            }
         }
         finally
         {
@@ -132,6 +159,7 @@ public sealed class TelegramSchemaGeneratorCliTests
 
             var manifestPath = Path.Combine(generatedOutputPath, "telegram-bot-api.manifest.json");
             Assert.True(IoFile.Exists(manifestPath));
+            AssertUsesLfLineEndings(manifestPath);
 
             using var manifestDocument = JsonDocument.Parse(IoFile.ReadAllText(manifestPath));
             var manifest = manifestDocument.RootElement;
@@ -147,10 +175,11 @@ public sealed class TelegramSchemaGeneratorCliTests
             Assert.Equal("2026-06-11", telegramBotApi.GetProperty("releasedAt").GetString());
             Assert.Equal("june-11-2026", telegramBotApi.GetProperty("changelogAnchor").GetString());
             Assert.Equal("https://core.telegram.org/bots/api-changelog#june-11-2026", telegramBotApi.GetProperty("changelogUrl").GetString());
-            Assert.Equal(7, pipeline.GetProperty("schemaVersion").GetInt32());
-            Assert.Equal(10, pipeline.GetProperty("generatorVersion").GetInt32());
+            Assert.Equal(8, pipeline.GetProperty("schemaVersion").GetInt32());
+            Assert.Equal(11, pipeline.GetProperty("generatorVersion").GetInt32());
 
             var updateFile = IoFile.ReadAllText(Path.Combine(generatedOutputPath, "Types", "Update.g.cs"));
+            AssertUsesLfLineEndings(Path.Combine(generatedOutputPath, "Types", "Update.g.cs"));
             Assert.Contains("//   Telegram Bot API version: 10.1", updateFile);
             Assert.Contains("//   Telegram Bot API changelog: https://core.telegram.org/bots/api-changelog#june-11-2026", updateFile);
             Assert.DoesNotContain("//   Source snapshot:", updateFile);
@@ -159,6 +188,7 @@ public sealed class TelegramSchemaGeneratorCliTests
             Assert.DoesNotContain("//   Generator version:", updateFile);
 
             var clientMethodFile = IoFile.ReadAllText(Path.Combine(telegramOutputPath, "Generated", "Methods", "SendMessageExtensions.g.cs"));
+            AssertUsesLfLineEndings(Path.Combine(telegramOutputPath, "Generated", "Methods", "SendMessageExtensions.g.cs"));
             Assert.Contains("//   Kind: ClientMethod", clientMethodFile);
             Assert.DoesNotContain("//   Source snapshot:", clientMethodFile);
             Assert.DoesNotContain("//   Source SHA-256:", clientMethodFile);
@@ -166,12 +196,19 @@ public sealed class TelegramSchemaGeneratorCliTests
             Assert.DoesNotContain("//   Generator version:", clientMethodFile);
 
             var constantsFile = IoFile.ReadAllText(Path.Combine(generatedOutputPath, "Constants", "ButtonStyles.g.cs"));
+            AssertUsesLfLineEndings(Path.Combine(generatedOutputPath, "Constants", "ButtonStyles.g.cs"));
             Assert.Contains("namespace TeleFlow.Telegram.Schema.Constants;", constantsFile);
             Assert.Contains("public static class ButtonStyles", constantsFile);
             Assert.Contains("/// Telegram Bot API value <c>danger</c>.", constantsFile);
             Assert.Contains("public const string Danger = \"danger\";", constantsFile);
             Assert.Contains("public const string Primary = \"primary\";", constantsFile);
             Assert.Contains("public const string Success = \"success\";", constantsFile);
+
+            var chatMemberStatusesFile = IoFile.ReadAllText(Path.Combine(generatedOutputPath, "Constants", "ChatMemberStatuses.g.cs"));
+            Assert.Contains("public static class ChatMemberStatuses", chatMemberStatusesFile);
+            Assert.Contains("public const string Administrator = \"administrator\";", chatMemberStatusesFile);
+            Assert.Contains("public const string Creator = \"creator\";", chatMemberStatusesFile);
+            Assert.Contains("public const string Member = \"member\";", chatMemberStatusesFile);
         }
         finally
         {
@@ -202,6 +239,40 @@ public sealed class TelegramSchemaGeneratorCliTests
         Assert.Equal(expectedTelegramValues, values);
     }
 
+    private static void AssertConstantGroupEntries(
+        JsonElement constantGroups,
+        string name,
+        (string Name, string TelegramValue)[] expectedValues)
+    {
+        var group = constantGroups
+            .EnumerateArray()
+            .First(item => item.GetProperty("Name").GetString() == name);
+        var values = group.GetProperty("Values")
+            .EnumerateArray()
+            .Select(item => (
+                Name: item.GetProperty("Name").GetString()!,
+                TelegramValue: item.GetProperty("TelegramValue").GetString()!))
+            .ToArray();
+
+        Assert.Equal(expectedValues, values);
+    }
+
+    private static void AssertNoConstantGroup(JsonElement constantGroups, string name)
+    {
+        Assert.DoesNotContain(
+            constantGroups.EnumerateArray(),
+            item => item.GetProperty("Name").GetString() == name);
+    }
+
+    private static void AssertUsesLfLineEndings(string path)
+    {
+        var contents = IoFile.ReadAllText(path);
+
+        Assert.Contains("\n", contents);
+        Assert.DoesNotContain("\r\n", contents);
+        Assert.DoesNotContain('\r', contents);
+    }
+
     private const string MinimalNormalizedSnapshotJson =
         """
         {
@@ -212,8 +283,8 @@ public sealed class TelegramSchemaGeneratorCliTests
             "TelegramBotApiVersion": "10.1",
             "TelegramBotApiReleasedAt": "2026-06-11",
             "TelegramBotApiChangelogAnchor": "june-11-2026",
-            "SchemaVersion": 7,
-            "GeneratorVersion": 10
+            "SchemaVersion": 8,
+            "GeneratorVersion": 11
           },
           "Types": [
             {
@@ -344,6 +415,38 @@ public sealed class TelegramSchemaGeneratorCliTests
                   "TelegramValue": "success"
                 }
               ]
+            },
+            {
+              "Name": "ChatMemberStatuses",
+              "Summary": "Known Telegram Bot API ChatMember status values.",
+              "Sources": [
+                {
+                  "TypeName": "ChatMemberAdministrator",
+                  "TelegramName": "status"
+                },
+                {
+                  "TypeName": "ChatMemberMember",
+                  "TelegramName": "status"
+                },
+                {
+                  "TypeName": "ChatMemberOwner",
+                  "TelegramName": "status"
+                }
+              ],
+              "Values": [
+                {
+                  "Name": "Administrator",
+                  "TelegramValue": "administrator"
+                },
+                {
+                  "Name": "Creator",
+                  "TelegramValue": "creator"
+                },
+                {
+                  "Name": "Member",
+                  "TelegramValue": "member"
+                }
+              ]
             }
           ]
         }
@@ -395,4 +498,12 @@ public sealed class TelegramSchemaGeneratorCliTests
 
         return directory?.FullName ?? throw new InvalidOperationException("Repository root could not be resolved.");
     }
+
+    private sealed record ConstantGroupExpectation(
+        string Name,
+        string[] TelegramValues);
+
+    private sealed record ConstantGroupEntryExpectation(
+        string Name,
+        (string Name, string TelegramValue)[] Values);
 }

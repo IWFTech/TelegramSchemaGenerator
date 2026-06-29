@@ -5,12 +5,24 @@ namespace TeleFlow.Telegram.SchemaGenerator.Normalization;
 
 internal static class TelegramConstantGroupExtractor
 {
+    private static readonly Regex QuotedTelegramValueRegex = new(
+        "[\"“'](?<value>[a-zA-Z0-9_:-]+)[\"”']",
+        RegexOptions.Compiled);
+
+    private static readonly DiscriminatorNameRule[] DiscriminatorNameRules =
+    [
+        new("source", "Source", "Sources"),
+        new("status", "Status", "Statuses"),
+        new("style", "Style", "Styles"),
+        new("type", "Type", "Types")
+    ];
+
     private static readonly ConstantGroupSpec[] Specs =
     [
         new(
             "ButtonStyles",
             "Known Telegram Bot API button style values.",
-            new Regex("[\"“'](?<value>[a-zA-Z0-9_:-]+)[\"”']", RegexOptions.Compiled),
+            QuotedTelegramValueRegex,
             [
                 new("InlineKeyboardButton", "style"),
                 new("KeyboardButton", "style")
@@ -19,7 +31,7 @@ internal static class TelegramConstantGroupExtractor
         new(
             "ChatTypes",
             "Known Telegram Bot API chat type values.",
-            new Regex("[\"“'](?<value>[a-zA-Z0-9_:-]+)[\"”']", RegexOptions.Compiled),
+            QuotedTelegramValueRegex,
             [
                 new("Chat", "type")
             ],
@@ -29,7 +41,7 @@ internal static class TelegramConstantGroupExtractor
         new(
             "ReactionTypes",
             "Known Telegram Bot API reaction type values.",
-            new Regex("[\"“'](?<value>[a-zA-Z0-9_:-]+)[\"”']", RegexOptions.Compiled),
+            QuotedTelegramValueRegex,
             [
                 new("ReactionTypeEmoji", "type"),
                 new("ReactionTypeCustomEmoji", "type"),
@@ -43,6 +55,17 @@ internal static class TelegramConstantGroupExtractor
         var typesByName = types.ToDictionary(static type => type.Name, StringComparer.Ordinal);
         var groups = new List<NormalizedTelegramConstantGroup>();
 
+        groups.AddRange(ExtractConfiguredGroups(typesByName));
+        groups.AddRange(ExtractUnionDiscriminatorGroups(types));
+
+        return MergeGroups(groups)
+            .OrderBy(static group => group.Name, StringComparer.Ordinal)
+            .ToArray();
+    }
+
+    private static IEnumerable<NormalizedTelegramConstantGroup> ExtractConfiguredGroups(
+        Dictionary<string, NormalizedTelegramType> typesByName)
+    {
         foreach (var spec in Specs)
         {
             var values = new SortedSet<string>(StringComparer.Ordinal);
@@ -94,7 +117,7 @@ internal static class TelegramConstantGroupExtractor
                 values.Add(value.Value);
             }
 
-            groups.Add(new NormalizedTelegramConstantGroup(
+            yield return new NormalizedTelegramConstantGroup(
                 spec.Name,
                 spec.Summary,
                 sources
@@ -103,12 +126,128 @@ internal static class TelegramConstantGroupExtractor
                     .ToArray(),
                 values
                     .Select(value => new NormalizedTelegramConstantValue(ToPascalCase(value), value))
-                    .ToArray()));
+                    .ToArray());
+        }
+    }
+
+    private static IEnumerable<NormalizedTelegramConstantGroup> ExtractUnionDiscriminatorGroups(
+        IReadOnlyList<NormalizedTelegramType> types)
+    {
+        foreach (var type in types)
+        {
+            if (type.NamedUnionStrategy != "property-discriminator" ||
+                string.IsNullOrWhiteSpace(type.NamedUnionDiscriminatorProperty))
+            {
+                continue;
+            }
+
+            var discriminatorProperty = type.NamedUnionDiscriminatorProperty;
+            var cases = type.UnionCases
+                .Where(unionCase =>
+                    unionCase.MatchStrategy == "property-discriminator" &&
+                    string.Equals(unionCase.DiscriminatorProperty, discriminatorProperty, StringComparison.Ordinal) &&
+                    !string.IsNullOrWhiteSpace(unionCase.DiscriminatorValue))
+                .ToArray();
+
+            if (cases.Length == 0)
+            {
+                continue;
+            }
+
+            var duplicateValues = cases
+                .GroupBy(static unionCase => unionCase.DiscriminatorValue!, StringComparer.Ordinal)
+                .Where(static group => group.Count() > 1)
+                .Select(static group => group.Key)
+                .ToHashSet(StringComparer.Ordinal);
+
+            yield return new NormalizedTelegramConstantGroup(
+                ToUnionConstantGroupName(type.Name, discriminatorProperty),
+                $"Known Telegram Bot API {type.Name} {discriminatorProperty} values.",
+                cases
+                    .Select(unionCase => new NormalizedTelegramConstantSource(unionCase.RawType, discriminatorProperty))
+                    .OrderBy(static source => source.TypeName, StringComparer.Ordinal)
+                    .ThenBy(static source => source.TelegramName, StringComparer.Ordinal)
+                    .ToArray(),
+                cases
+                    .Select(unionCase => ToUnionConstantValue(type.Name, unionCase, duplicateValues))
+                    .OrderBy(static value => value.Name, StringComparer.Ordinal)
+                    .ThenBy(static value => value.TelegramValue, StringComparer.Ordinal)
+                    .ToArray());
+        }
+    }
+
+    private static IReadOnlyList<NormalizedTelegramConstantGroup> MergeGroups(
+        IReadOnlyList<NormalizedTelegramConstantGroup> groups)
+    {
+        return groups
+            .GroupBy(static group => group.Name, StringComparer.Ordinal)
+            .Select(static group =>
+            {
+                var first = group.First();
+
+                return new NormalizedTelegramConstantGroup(
+                    first.Name,
+                    first.Summary,
+                    group
+                        .SelectMany(static item => item.Sources)
+                        .GroupBy(static source => $"{source.TypeName}|{source.TelegramName}", StringComparer.Ordinal)
+                        .Select(static sourceGroup => sourceGroup.First())
+                        .OrderBy(static source => source.TypeName, StringComparer.Ordinal)
+                        .ThenBy(static source => source.TelegramName, StringComparer.Ordinal)
+                        .ToArray(),
+                    group
+                        .SelectMany(static item => item.Values)
+                        .GroupBy(static value => $"{value.Name}|{value.TelegramValue}", StringComparer.Ordinal)
+                        .Select(static valueGroup => valueGroup.First())
+                        .OrderBy(static value => value.Name, StringComparer.Ordinal)
+                        .ThenBy(static value => value.TelegramValue, StringComparer.Ordinal)
+                        .ToArray());
+            })
+            .ToArray();
+    }
+
+    private static NormalizedTelegramConstantValue ToUnionConstantValue(
+        string ownerTypeName,
+        NormalizedTelegramUnionCase unionCase,
+        IReadOnlySet<string> duplicateValues)
+    {
+        var telegramValue = unionCase.DiscriminatorValue
+            ?? throw new InvalidOperationException($"The union case '{unionCase.RawType}' is missing discriminator value metadata.");
+        var name = duplicateValues.Contains(telegramValue)
+            ? ToCaseConstantName(ownerTypeName, unionCase.RawType)
+            : ToPascalCase(telegramValue);
+
+        return new NormalizedTelegramConstantValue(name, telegramValue);
+    }
+
+    private static string ToUnionConstantGroupName(string ownerTypeName, string discriminatorProperty)
+    {
+        var rule = DiscriminatorNameRules.FirstOrDefault(rule =>
+            rule.DiscriminatorProperty.Equals(discriminatorProperty, StringComparison.Ordinal));
+
+        if (rule is null)
+        {
+            return ownerTypeName + ToPascalCase(discriminatorProperty) + "Values";
         }
 
-        return groups
-            .OrderBy(static group => group.Name, StringComparer.Ordinal)
-            .ToArray();
+        return ownerTypeName.EndsWith(rule.OwnerTypeSuffix, StringComparison.Ordinal)
+            ? ownerTypeName[..^rule.OwnerTypeSuffix.Length] + rule.GroupNameSuffix
+            : ownerTypeName + rule.GroupNameSuffix;
+    }
+
+    private static string ToCaseConstantName(string ownerTypeName, string caseTypeName)
+    {
+        var name = caseTypeName.StartsWith(ownerTypeName, StringComparison.Ordinal)
+            ? caseTypeName[ownerTypeName.Length..]
+            : caseTypeName;
+
+        if (string.IsNullOrWhiteSpace(name))
+        {
+            throw new InvalidOperationException(
+                $"The union case '{caseTypeName}' cannot be converted to a constant name for '{ownerTypeName}'.");
+        }
+
+        return name;
     }
 
     private static string ToPascalCase(string value)
@@ -136,4 +275,9 @@ internal static class TelegramConstantGroupExtractor
         string TelegramName);
 
     private sealed record ConstantValueSpec(string Value);
+
+    private sealed record DiscriminatorNameRule(
+        string DiscriminatorProperty,
+        string OwnerTypeSuffix,
+        string GroupNameSuffix);
 }
