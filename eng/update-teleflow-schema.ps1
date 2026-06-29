@@ -74,7 +74,8 @@ function Update-TelegramBotApiBadge {
         namedLogo = "telegram"
     }
 
-    $badge | ConvertTo-Json -Depth 4 | Set-Content -LiteralPath $badgePath -Encoding UTF8
+    $badgeJson = (($badge | ConvertTo-Json -Depth 4) -replace "`r`n", "`n" -replace "`r", "`n") + "`n"
+    [System.IO.File]::WriteAllText($badgePath, $badgeJson, [System.Text.UTF8Encoding]::new($false))
 }
 
 $schemaOutput = Resolve-TeleFlowPath @(

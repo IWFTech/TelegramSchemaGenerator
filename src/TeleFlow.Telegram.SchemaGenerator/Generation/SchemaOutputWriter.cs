@@ -20,10 +20,9 @@ internal static class SchemaOutputWriter
         RecreateDirectory(Path.Combine(root, "Abstractions"));
         RecreateDirectory(Path.Combine(root, "Constants"));
 
-        File.WriteAllText(
+        GeneratedTextWriter.WriteAllText(
             Path.Combine(root, "Responses", "TelegramApiResponse.g.cs"),
-            ResponsesGenerator.Generate(schema),
-            Utf8WithoutBom.Instance);
+            ResponsesGenerator.Generate(schema));
 
         var abstractionNames = schema.Abstractions
             .Select(static abstraction => abstraction.Name)
@@ -33,34 +32,30 @@ internal static class SchemaOutputWriter
                      .Where(static item => item.Kind is not "response-envelope")
                      .OrderBy(static item => item.Name, StringComparer.Ordinal))
         {
-            File.WriteAllText(
+            GeneratedTextWriter.WriteAllText(
                 Path.Combine(root, "Abstractions", abstraction.Name + ".g.cs"),
-                AbstractionsGenerator.Generate(schema, abstraction),
-                Utf8WithoutBom.Instance);
+                AbstractionsGenerator.Generate(schema, abstraction));
         }
 
         foreach (var type in schema.Types.OrderBy(static item => item.Name, StringComparer.Ordinal))
         {
-            File.WriteAllText(
+            GeneratedTextWriter.WriteAllText(
                 Path.Combine(root, "Types", type.Name + ".g.cs"),
-                TypesGenerator.Generate(schema, type, abstractionNames),
-                Utf8WithoutBom.Instance);
+                TypesGenerator.Generate(schema, type, abstractionNames));
         }
 
         foreach (var method in schema.Methods.OrderBy(static item => item.Name, StringComparer.Ordinal))
         {
-            File.WriteAllText(
+            GeneratedTextWriter.WriteAllText(
                 Path.Combine(root, "Methods", method.Name + ".g.cs"),
-                MethodsGenerator.Generate(schema, method, abstractionNames),
-                Utf8WithoutBom.Instance);
+                MethodsGenerator.Generate(schema, method, abstractionNames));
         }
 
         foreach (var group in schema.ConstantGroups.OrderBy(static item => item.Name, StringComparer.Ordinal))
         {
-            File.WriteAllText(
+            GeneratedTextWriter.WriteAllText(
                 Path.Combine(root, "Constants", group.Name + ".g.cs"),
-                ConstantsGenerator.Generate(schema, group),
-                Utf8WithoutBom.Instance);
+                ConstantsGenerator.Generate(schema, group));
         }
 
         TelegramBotApiManifestWriter.Write(root, schema.Metadata);

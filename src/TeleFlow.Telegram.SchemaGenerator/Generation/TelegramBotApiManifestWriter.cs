@@ -32,8 +32,8 @@ internal static class TelegramBotApiManifestWriter
                 SchemaVersion: Require(metadata.SchemaVersion, nameof(metadata.SchemaVersion)),
                 GeneratorVersion: Require(metadata.GeneratorVersion, nameof(metadata.GeneratorVersion))));
 
-        var contents = JsonSerializer.Serialize(manifest, SerializerOptions) + Environment.NewLine;
-        File.WriteAllText(Path.Combine(outputDirectory, FileName), contents, Utf8WithoutBom.Instance);
+        var contents = JsonSerializer.Serialize(manifest, SerializerOptions) + "\n";
+        GeneratedTextWriter.WriteAllText(Path.Combine(outputDirectory, FileName), contents);
     }
 
     private static string Require(string? value, string name)

@@ -20,16 +20,14 @@ internal static class TelegramRuntimeOutputWriter
 
         foreach (var method in schema.Methods.OrderBy(static item => item.Name, StringComparer.Ordinal))
         {
-            File.WriteAllText(
+            GeneratedTextWriter.WriteAllText(
                 Path.Combine(methodsDirectory, method.Name + "Extensions.g.cs"),
-                TelegramClientMethodExtensionsGenerator.Generate(schema, method, abstractionNames),
-                Utf8WithoutBom.Instance);
+                TelegramClientMethodExtensionsGenerator.Generate(schema, method, abstractionNames));
         }
 
-        File.WriteAllText(
+        GeneratedTextWriter.WriteAllText(
             Path.Combine(root, "Generated", "TelegramUpdateTypes.g.cs"),
-            TelegramUpdateTypesGenerator.Generate(schema),
-            Utf8WithoutBom.Instance);
+            TelegramUpdateTypesGenerator.Generate(schema));
     }
 
     private static void Validate(NormalizedTelegramSchema schema)

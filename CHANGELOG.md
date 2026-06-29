@@ -6,6 +6,7 @@ TeleFlow Telegram Schema Generator follows SemVer for the generator CLI, schema 
 
 ### Added
 
+- Generated grouped constants for union discriminator literals such as chat member statuses, BotCommandScope types, and PassportElementError sources.
 - Initial standalone repository baseline for the Telegram Bot API schema extraction and code generation tool.
 - Solution-based `src/` and `tests/` repository layout.
 - Local verification script at `eng/verify.ps1`.
