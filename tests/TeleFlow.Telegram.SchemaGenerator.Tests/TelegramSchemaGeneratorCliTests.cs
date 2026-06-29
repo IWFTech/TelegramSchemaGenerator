@@ -75,6 +75,44 @@ public sealed class TelegramSchemaGeneratorCliTests
     }
 
     [Fact]
+    public void Normalize_Command_ExtractsEnumLikeConstants()
+    {
+        var tempDirectory = Directory.CreateTempSubdirectory("teleflow-schema-generator-constants-");
+
+        try
+        {
+            var rawOutputPath = Path.Combine(tempDirectory.FullName, "raw.json");
+            var normalizedOutputPath = Path.Combine(tempDirectory.FullName, "normalized.json");
+
+            RunGenerator(
+                "parse-docs",
+                "--input-html", Path.Combine(RepositoryRoot, "tests", "TeleFlow.Telegram.SchemaGenerator.Tests", "Fixtures", "telegram-doc-sample.html"),
+                "--output", rawOutputPath);
+            RunGenerator("normalize", "--input", rawOutputPath, "--output", normalizedOutputPath);
+
+            using var document = JsonDocument.Parse(IoFile.ReadAllText(normalizedOutputPath));
+            var constantGroups = document.RootElement.GetProperty("ConstantGroups");
+
+            AssertConstantGroup(
+                constantGroups,
+                "ButtonStyles",
+                ["danger", "primary", "success"]);
+            AssertConstantGroup(
+                constantGroups,
+                "ChatTypes",
+                ["channel", "group", "private", "sender", "supergroup"]);
+            AssertConstantGroup(
+                constantGroups,
+                "ReactionTypes",
+                ["custom_emoji", "emoji", "paid"]);
+        }
+        finally
+        {
+            tempDirectory.Delete(recursive: true);
+        }
+    }
+
+    [Fact]
     public void Generate_Command_WritesGeneratedManifestAndStableHeaders()
     {
         var tempDirectory = Directory.CreateTempSubdirectory("teleflow-schema-generator-generate-");
@@ -109,8 +147,8 @@ public sealed class TelegramSchemaGeneratorCliTests
             Assert.Equal("2026-06-11", telegramBotApi.GetProperty("releasedAt").GetString());
             Assert.Equal("june-11-2026", telegramBotApi.GetProperty("changelogAnchor").GetString());
             Assert.Equal("https://core.telegram.org/bots/api-changelog#june-11-2026", telegramBotApi.GetProperty("changelogUrl").GetString());
-            Assert.Equal(6, pipeline.GetProperty("schemaVersion").GetInt32());
-            Assert.Equal(9, pipeline.GetProperty("generatorVersion").GetInt32());
+            Assert.Equal(7, pipeline.GetProperty("schemaVersion").GetInt32());
+            Assert.Equal(10, pipeline.GetProperty("generatorVersion").GetInt32());
 
             var updateFile = IoFile.ReadAllText(Path.Combine(generatedOutputPath, "Types", "Update.g.cs"));
             Assert.Contains("//   Telegram Bot API version: 10.1", updateFile);
@@ -126,6 +164,14 @@ public sealed class TelegramSchemaGeneratorCliTests
             Assert.DoesNotContain("//   Source SHA-256:", clientMethodFile);
             Assert.DoesNotContain("//   Schema version:", clientMethodFile);
             Assert.DoesNotContain("//   Generator version:", clientMethodFile);
+
+            var constantsFile = IoFile.ReadAllText(Path.Combine(generatedOutputPath, "Constants", "ButtonStyles.g.cs"));
+            Assert.Contains("namespace TeleFlow.Telegram.Schema.Constants;", constantsFile);
+            Assert.Contains("public static class ButtonStyles", constantsFile);
+            Assert.Contains("/// Telegram Bot API value <c>danger</c>.", constantsFile);
+            Assert.Contains("public const string Danger = \"danger\";", constantsFile);
+            Assert.Contains("public const string Primary = \"primary\";", constantsFile);
+            Assert.Contains("public const string Success = \"success\";", constantsFile);
         }
         finally
         {
@@ -140,6 +186,22 @@ public sealed class TelegramSchemaGeneratorCliTests
         Assert.Equal("june-11-2026", metadata.GetProperty("TelegramBotApiChangelogAnchor").GetString());
     }
 
+    private static void AssertConstantGroup(
+        JsonElement constantGroups,
+        string name,
+        string[] expectedTelegramValues)
+    {
+        var group = constantGroups
+            .EnumerateArray()
+            .First(item => item.GetProperty("Name").GetString() == name);
+        var values = group.GetProperty("Values")
+            .EnumerateArray()
+            .Select(item => item.GetProperty("TelegramValue").GetString())
+            .ToArray();
+
+        Assert.Equal(expectedTelegramValues, values);
+    }
+
     private const string MinimalNormalizedSnapshotJson =
         """
         {
@@ -150,8 +212,8 @@ public sealed class TelegramSchemaGeneratorCliTests
             "TelegramBotApiVersion": "10.1",
             "TelegramBotApiReleasedAt": "2026-06-11",
             "TelegramBotApiChangelogAnchor": "june-11-2026",
-            "SchemaVersion": 6,
-            "GeneratorVersion": 9
+            "SchemaVersion": 7,
+            "GeneratorVersion": 10
           },
           "Types": [
             {
@@ -257,7 +319,33 @@ public sealed class TelegramSchemaGeneratorCliTests
               ]
             }
           ],
-          "Abstractions": []
+          "Abstractions": [],
+          "ConstantGroups": [
+            {
+              "Name": "ButtonStyles",
+              "Summary": "Known Telegram Bot API button style values.",
+              "Sources": [
+                {
+                  "TypeName": "InlineKeyboardButton",
+                  "TelegramName": "style"
+                }
+              ],
+              "Values": [
+                {
+                  "Name": "Danger",
+                  "TelegramValue": "danger"
+                },
+                {
+                  "Name": "Primary",
+                  "TelegramValue": "primary"
+                },
+                {
+                  "Name": "Success",
+                  "TelegramValue": "success"
+                }
+              ]
+            }
+          ]
         }
         """;
 

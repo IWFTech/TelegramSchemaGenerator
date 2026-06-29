@@ -18,6 +18,7 @@ internal static class SchemaOutputWriter
         RecreateDirectory(Path.Combine(root, "Methods"));
         RecreateDirectory(Path.Combine(root, "Responses"));
         RecreateDirectory(Path.Combine(root, "Abstractions"));
+        RecreateDirectory(Path.Combine(root, "Constants"));
 
         File.WriteAllText(
             Path.Combine(root, "Responses", "TelegramApiResponse.g.cs"),
@@ -54,6 +55,14 @@ internal static class SchemaOutputWriter
                 Utf8WithoutBom.Instance);
         }
 
+        foreach (var group in schema.ConstantGroups.OrderBy(static item => item.Name, StringComparer.Ordinal))
+        {
+            File.WriteAllText(
+                Path.Combine(root, "Constants", group.Name + ".g.cs"),
+                ConstantsGenerator.Generate(schema, group),
+                Utf8WithoutBom.Instance);
+        }
+
         TelegramBotApiManifestWriter.Write(root, schema.Metadata);
     }
 
@@ -64,6 +73,7 @@ internal static class SchemaOutputWriter
             .Concat(schema.Abstractions
                 .Where(static item => item.Kind is not "interface" and not "response-envelope")
                 .Select(static item => item.Name))
+            .Concat(schema.ConstantGroups.Select(static item => item.Name))
             .GroupBy(static item => item, StringComparer.Ordinal)
             .Where(static group => group.Count() > 1)
             .Select(static group => group.Key)
@@ -95,6 +105,32 @@ internal static class SchemaOutputWriter
         if (invalidAbstractionNames.Length > 0)
         {
             throw new InvalidOperationException("Generated abstraction names failed quality checks: " + string.Join(", ", invalidAbstractionNames));
+        }
+
+        var duplicateConstantGroupNames = schema.ConstantGroups
+            .GroupBy(static group => group.Name, StringComparer.Ordinal)
+            .Where(static group => group.Count() > 1)
+            .Select(static group => group.Key)
+            .ToArray();
+
+        if (duplicateConstantGroupNames.Length > 0)
+        {
+            throw new InvalidOperationException("Duplicate generated constant group names were detected: " + string.Join(", ", duplicateConstantGroupNames));
+        }
+
+        foreach (var group in schema.ConstantGroups)
+        {
+            var duplicateConstantNames = group.Values
+                .GroupBy(static value => value.Name, StringComparer.Ordinal)
+                .Where(static valueGroup => valueGroup.Count() > 1)
+                .Select(static valueGroup => valueGroup.Key)
+                .ToArray();
+
+            if (duplicateConstantNames.Length > 0)
+            {
+                throw new InvalidOperationException(
+                    $"Duplicate generated constant names were detected for '{group.Name}': " + string.Join(", ", duplicateConstantNames));
+            }
         }
     }
 

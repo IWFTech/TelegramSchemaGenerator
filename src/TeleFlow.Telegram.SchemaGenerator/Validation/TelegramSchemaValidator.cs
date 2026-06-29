@@ -130,6 +130,67 @@ internal static class TelegramSchemaValidator
         {
             ValidateUnionCases(abstraction.Name, abstraction.UnionCases);
         }
+
+        ValidateConstantGroups(schema.ConstantGroups);
+    }
+
+    private static void ValidateConstantGroups(IReadOnlyList<NormalizedTelegramConstantGroup>? constantGroups)
+    {
+        if (constantGroups is null)
+        {
+            throw new InvalidOperationException("The normalized schema snapshot is missing ConstantGroups.");
+        }
+
+        var duplicateGroups = constantGroups
+            .GroupBy(static group => group.Name, StringComparer.Ordinal)
+            .Where(static group => group.Count() > 1)
+            .Select(static group => group.Key)
+            .ToArray();
+
+        if (duplicateGroups.Length > 0)
+        {
+            throw new InvalidOperationException("The normalized schema contains duplicate constant groups: " + string.Join(", ", duplicateGroups));
+        }
+
+        foreach (var group in constantGroups)
+        {
+            if (string.IsNullOrWhiteSpace(group.Name) ||
+                string.IsNullOrWhiteSpace(group.Summary) ||
+                group.Values.Count == 0)
+            {
+                throw new InvalidOperationException("The normalized schema contains an incomplete constant group.");
+            }
+
+            foreach (var source in group.Sources)
+            {
+                if (string.IsNullOrWhiteSpace(source.TypeName) ||
+                    string.IsNullOrWhiteSpace(source.TelegramName))
+                {
+                    throw new InvalidOperationException($"The constant group '{group.Name}' contains an incomplete source definition.");
+                }
+            }
+
+            var duplicateValues = group.Values
+                .GroupBy(static value => value.TelegramValue, StringComparer.Ordinal)
+                .Where(static valueGroup => valueGroup.Count() > 1)
+                .Select(static valueGroup => valueGroup.Key)
+                .ToArray();
+
+            if (duplicateValues.Length > 0)
+            {
+                throw new InvalidOperationException(
+                    $"The constant group '{group.Name}' contains duplicate Telegram values: " + string.Join(", ", duplicateValues));
+            }
+
+            foreach (var value in group.Values)
+            {
+                if (string.IsNullOrWhiteSpace(value.Name) ||
+                    string.IsNullOrWhiteSpace(value.TelegramValue))
+                {
+                    throw new InvalidOperationException($"The constant group '{group.Name}' contains an incomplete value definition.");
+                }
+            }
+        }
     }
 
     private static void ValidateUnionCases(string ownerName, IReadOnlyList<NormalizedTelegramUnionCase> unionCases)

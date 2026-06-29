@@ -116,14 +116,186 @@
     </tbody>
   </table>
 
+  <h4><a class="anchor" name="inlinekeyboardbutton" href="#inlinekeyboardbutton"></a>InlineKeyboardButton</h4>
+  <p>This object represents one button of an inline keyboard.</p>
+  <table class="table">
+    <thead>
+      <tr>
+        <th>Field</th>
+        <th>Type</th>
+        <th>Description</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>text</td>
+        <td>String</td>
+        <td>Label text on the button.</td>
+      </tr>
+      <tr>
+        <td>style</td>
+        <td>String</td>
+        <td>Optional. Style of the button. Must be one of "danger" (red), "success" (green) or "primary" (blue).</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <h4><a class="anchor" name="keyboardbutton" href="#keyboardbutton"></a>KeyboardButton</h4>
+  <p>This object represents one button of the reply keyboard.</p>
+  <table class="table">
+    <thead>
+      <tr>
+        <th>Field</th>
+        <th>Type</th>
+        <th>Description</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>text</td>
+        <td>String</td>
+        <td>Text of the button.</td>
+      </tr>
+      <tr>
+        <td>style</td>
+        <td>String</td>
+        <td>Optional. Style of the button. Must be one of "danger" (red), "success" (green) or "primary" (blue).</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <h4><a class="anchor" name="chat" href="#chat"></a>Chat</h4>
+  <p>This object represents a chat.</p>
+  <table class="table">
+    <thead>
+      <tr>
+        <th>Field</th>
+        <th>Type</th>
+        <th>Description</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>type</td>
+        <td>String</td>
+        <td>Type of the chat, can be either "private", "group", "supergroup" or "channel".</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <h4><a class="anchor" name="reactiontypeemoji" href="#reactiontypeemoji"></a>ReactionTypeEmoji</h4>
+  <p>The reaction is based on an emoji.</p>
+  <table class="table">
+    <thead>
+      <tr>
+        <th>Field</th>
+        <th>Type</th>
+        <th>Description</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>type</td>
+        <td>String</td>
+        <td>Type of the reaction, always "emoji".</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <h4><a class="anchor" name="reactiontypecustomemoji" href="#reactiontypecustomemoji"></a>ReactionTypeCustomEmoji</h4>
+  <p>The reaction is based on a custom emoji.</p>
+  <table class="table">
+    <thead>
+      <tr>
+        <th>Field</th>
+        <th>Type</th>
+        <th>Description</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>type</td>
+        <td>String</td>
+        <td>Type of the reaction, always "custom_emoji".</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <h4><a class="anchor" name="reactiontypepaid" href="#reactiontypepaid"></a>ReactionTypePaid</h4>
+  <p>The reaction is paid.</p>
+  <table class="table">
+    <thead>
+      <tr>
+        <th>Field</th>
+        <th>Type</th>
+        <th>Description</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>type</td>
+        <td>String</td>
+        <td>Type of the reaction, always "paid".</td>
+      </tr>
+    </tbody>
+  </table>
+
   <h4><a class="anchor" name="replykeyboardmarkup" href="#replykeyboardmarkup"></a>ReplyKeyboardMarkup</h4>
   <p>This object represents a custom keyboard with reply options.</p>
+  <table class="table">
+    <thead>
+      <tr>
+        <th>Field</th>
+        <th>Type</th>
+        <th>Description</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>keyboard</td>
+        <td>Array of String</td>
+        <td>Array of button rows.</td>
+      </tr>
+    </tbody>
+  </table>
 
   <h4><a class="anchor" name="replykeyboardremove" href="#replykeyboardremove"></a>ReplyKeyboardRemove</h4>
   <p>Upon receiving a message with this object, Telegram clients will remove the current custom keyboard.</p>
+  <table class="table">
+    <thead>
+      <tr>
+        <th>Field</th>
+        <th>Type</th>
+        <th>Description</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>remove_keyboard</td>
+        <td>Boolean</td>
+        <td>Requests clients to remove the custom keyboard. Must be True.</td>
+      </tr>
+    </tbody>
+  </table>
 
   <h4><a class="anchor" name="forcereply" href="#forcereply"></a>ForceReply</h4>
   <p>Upon receiving a message with this object, Telegram clients will display a reply interface to the user.</p>
+  <table class="table">
+    <thead>
+      <tr>
+        <th>Field</th>
+        <th>Type</th>
+        <th>Description</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>force_reply</td>
+        <td>Boolean</td>
+        <td>Shows reply interface to the user. Must be True.</td>
+      </tr>
+    </tbody>
+  </table>
 
   <h3><a class="anchor" name="available-methods" href="#available-methods"></a>Available methods</h3>
   <h4><a class="anchor" name="getme" href="#getme"></a>getMe</h4>
