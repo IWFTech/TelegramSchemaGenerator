@@ -115,15 +115,20 @@ internal static class TelegramSchemaValidator
         }
 
         var invalidOpaqueAbstractions = schema.Abstractions
-            .Where(static abstraction => abstraction.Kind == "union")
-            .Select(static abstraction => abstraction.Name)
-            .Where(static name => Regex.IsMatch(name, @"Union[0-9A-F]{6}$", RegexOptions.CultureInvariant))
+            .Where(static abstraction =>
+                abstraction.Kind == "union" &&
+                Regex.IsMatch(abstraction.Name, @"Union[0-9A-F]{6}$", RegexOptions.CultureInvariant))
             .ToArray();
 
         if (invalidOpaqueAbstractions.Length > 0)
         {
             throw new InvalidOperationException(
-                "The normalized schema contains prohibited opaque public union names: " + string.Join(", ", invalidOpaqueAbstractions));
+                "The normalized schema contains prohibited opaque public union names. " +
+                "Register a semantic name in TelegramUnionNamingRegistry for: " +
+                string.Join(
+                    "; ",
+                    invalidOpaqueAbstractions.Select(static abstraction =>
+                        $"{abstraction.Name} ({abstraction.RawExpression ?? "<missing expression>"})")));
         }
 
         foreach (var abstraction in schema.Abstractions.Where(static abstraction => abstraction.Kind == "union"))
