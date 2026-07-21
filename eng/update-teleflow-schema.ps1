@@ -11,6 +11,7 @@ $ErrorActionPreference = "Stop"
 $repositoryRoot = Split-Path -Parent $PSScriptRoot
 $generatorProject = Join-Path $repositoryRoot "src\TeleFlow.Telegram.SchemaGenerator\TeleFlow.Telegram.SchemaGenerator.csproj"
 $teleflowFullPath = (Resolve-Path -LiteralPath $TeleFlowRoot).Path
+. (Join-Path $PSScriptRoot "update-teleflow-schema-support.ps1")
 
 function Invoke-CheckedDotNet {
     param([string[]] $Arguments)
@@ -38,52 +39,20 @@ function Resolve-TeleFlowPath {
     throw "Could not resolve $Description under '$teleflowFullPath'."
 }
 
-function Get-GeneratedManifestMetadata {
-    param([string] $SchemaOutput)
-
-    $manifestPath = Join-Path $SchemaOutput "telegram-bot-api.manifest.json"
-    if (-not (Test-Path -LiteralPath $manifestPath)) {
-        throw "Could not find generated Telegram Bot API manifest at '$manifestPath'."
-    }
-
-    $manifest = Get-Content -Raw -LiteralPath $manifestPath | ConvertFrom-Json
-    $version = [string] $manifest.telegramBotApi.version
-
-    if ([string]::IsNullOrWhiteSpace($version)) {
-        throw "Could not read Telegram Bot API version from '$manifestPath'."
-    }
-
-    return [ordered]@{
-        Version = $version
-        SourcePath = $manifestPath
-    }
-}
-
-function Update-TelegramBotApiBadge {
-    param([string] $SchemaOutput)
-
-    $metadata = Get-GeneratedManifestMetadata $SchemaOutput
-    $badgePath = Join-Path $teleflowFullPath "docs\badges\telegram-bot-api.json"
-    New-Item -ItemType Directory -Path (Split-Path -Parent $badgePath) -Force | Out-Null
-
-    $badge = [ordered]@{
-        schemaVersion = 1
-        label = "Telegram Bot API"
-        message = $metadata.Version
-        color = "26A5E4"
-        namedLogo = "telegram"
-    }
-
-    $badgeJson = (($badge | ConvertTo-Json -Depth 4) -replace "`r`n", "`n" -replace "`r", "`n") + "`n"
-    [System.IO.File]::WriteAllText($badgePath, $badgeJson, [System.Text.UTF8Encoding]::new($false))
-}
-
 $schemaOutput = Resolve-TeleFlowPath @(
     "src\TeleFlow.Telegram.Schema",
     "TeleFlow.Telegram.Schema") "TeleFlow.Telegram.Schema output"
 $telegramOutput = Resolve-TeleFlowPath @(
     "src\TeleFlow.Telegram.Client",
     "TeleFlow.Telegram.Client") "TeleFlow.Telegram.Client output"
+if (Test-TeleFlowGeneratedOutputChanged `
+        -TeleFlowRoot $teleflowFullPath `
+        -SchemaOutput $schemaOutput `
+        -TelegramOutput $telegramOutput) {
+    throw "TeleFlow generated output paths must be clean before regeneration."
+}
+
+$previousMetadata = Get-GeneratedManifestMetadata $schemaOutput
 
 $tempDirectory = Join-Path ([System.IO.Path]::GetTempPath()) ("teleflow-schema-update-" + [System.Guid]::NewGuid().ToString("N"))
 New-Item -ItemType Directory -Path $tempDirectory | Out-Null
@@ -111,7 +80,19 @@ try {
         "--telegram-output",
         $telegramOutput)
 
-    Update-TelegramBotApiBadge $schemaOutput
+    $generatedOutputChanged = Test-TeleFlowGeneratedOutputChanged `
+        -TeleFlowRoot $teleflowFullPath `
+        -SchemaOutput $schemaOutput `
+        -TelegramOutput $telegramOutput
+
+    Update-TelegramBotApiBadge `
+        -TeleFlowRoot $teleflowFullPath `
+        -SchemaOutput $schemaOutput
+    Update-TelegramBotApiChangelog `
+        -TeleFlowRoot $teleflowFullPath `
+        -SchemaOutput $schemaOutput `
+        -PreviousVersion $previousMetadata.Version `
+        -GeneratedOutputChanged $generatedOutputChanged
 }
 finally {
     Remove-Item -LiteralPath $tempDirectory -Recurse -Force -ErrorAction SilentlyContinue

@@ -86,6 +86,8 @@ Run the full pipeline:
 .\eng\update-teleflow-schema.ps1 -TeleFlowRoot $teleflow
 ```
 
+The TeleFlow generated schema and client output paths must be clean before this command runs. The script fails instead of overwriting uncommitted generated changes.
+
 ## Verification
 
 Run the full local verification pipeline:
@@ -94,7 +96,7 @@ Run the full local verification pipeline:
 .\eng\verify.ps1
 ```
 
-This runs restore, formatting verification, build, and tests for the solution.
+This runs schema update support checks, restore, formatting verification, build, and tests for the solution.
 
 ## Telegram Bot API Monitor
 
@@ -102,13 +104,16 @@ This runs restore, formatting verification, build, and tests for the solution.
 
 When a new Telegram Bot API version is detected, the workflow can generate a TeleFlow update branch and open a pull request.
 
-The workflow also supports manual generated-output refreshes. Run `Telegram Bot API Monitor` from GitHub Actions with `force_regenerate=true` when the Telegram Bot API version stayed the same but generator output semantics changed. This reparses the current Telegram docs, regenerates TeleFlow output with the current generator, builds TeleFlow, and opens a refresh pull request only when the generated output has a diff.
+The workflow also supports manual generated-output refreshes. Run `Telegram Bot API Monitor` from GitHub Actions with `force_regenerate=true` when the Telegram Bot API version stayed the same but generator output semantics changed. This reparses the current Telegram docs, regenerates TeleFlow output with the current generator, builds and tests TeleFlow, and opens a refresh pull request only when the generated output has a diff.
+
+An open generated-output pull request is intentionally never rewritten by a later monitor run. The workflow reports the existing pull request and stops. Close that pull request before requesting a new update for the same Bot API version.
 
 The generated TeleFlow pull request updates:
 - generated Telegram schema output
 - generated Telegram client extension output
 - `src/TeleFlow.Telegram.Schema/telegram-bot-api.manifest.json`
 - `docs/badges/telegram-bot-api.json`
+- an `Unreleased` changelog entry when generated schema or client output changes
 
 Required repository secret:
 

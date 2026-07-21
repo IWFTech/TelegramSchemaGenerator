@@ -6,13 +6,14 @@ on:
   workflow_dispatch:
     inputs:
       force_regenerate:
-        description: "Regenerate TeleFlow output even when Telegram Bot API version did not change"
+        description: "Create a refresh PR when Telegram Bot API version did not change (does not modify an open update PR)"
         type: boolean
         required: false
         default: false
 
 permissions:
   contents: read
+  pull-requests: read
 
 concurrency:
   group: telegram-api-monitor
@@ -127,34 +128,82 @@ jobs:
           ## Validation
           - generated with IWFTech/TelegramSchemaGenerator
           - ran dotnet build ./TeleFlow.sln -c Release
+          - ran dotnet test ./TeleFlow.sln -c Release
+          - ran ./eng/verify-schema-update-guardrails.ps1 -BaseRef main -SkipFetch
           PR_BODY
           "@ | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
 
-      - name: Stop when no update or refresh is requested
-        if: ${{ steps.plan.outputs.should_generate != 'true' }}
+      - name: Detect an open TeleFlow update pull request
+        id: existing-update-pr
+        if: ${{ steps.plan.outputs.should_generate == 'true' }}
         shell: pwsh
-        run: Write-Host "TeleFlow already targets Telegram Bot API ${{ steps.check.outputs.current_version }}."
+        env:
+          TELEFLOW_UPDATE_BRANCH: ${{ steps.plan.outputs.branch }}
+        run: |
+          $headers = @{
+            Accept = "application/vnd.github+json"
+            "User-Agent" = "TeleFlow-Schema-Monitor"
+          }
+
+          if (-not [string]::IsNullOrWhiteSpace($env:TELEFLOW_UPDATE_TOKEN)) {
+            $headers.Authorization = "Bearer $env:TELEFLOW_UPDATE_TOKEN"
+          }
+
+          $head = [System.Uri]::EscapeDataString("IWFTech:$env:TELEFLOW_UPDATE_BRANCH")
+          $uri = "https://api.github.com/repos/IWFTech/TeleFlow/pulls?state=open&head=$head&per_page=1"
+          $pullRequests = @(Invoke-RestMethod -Uri $uri -Headers $headers)
+          $existingPullRequest = $pullRequests | Select-Object -First 1
+          $exists = $null -ne $existingPullRequest
+
+          "exists=$($exists.ToString().ToLowerInvariant())" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
+          if ($exists) {
+            "url=$($existingPullRequest.html_url)" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
+            Write-Host "A matching TeleFlow update pull request is already open: $($existingPullRequest.html_url)"
+          }
+
+      - name: Stop when no update, refresh, or new pull request is required
+        if: ${{ steps.plan.outputs.should_generate != 'true' || steps.existing-update-pr.outputs.exists == 'true' }}
+        shell: pwsh
+        run: |
+          if ("${{ steps.existing-update-pr.outputs.exists }}" -eq "true") {
+            Write-Host "A matching TeleFlow update pull request is already open: ${{ steps.existing-update-pr.outputs.url }}"
+            exit 0
+          }
+
+          Write-Host "TeleFlow already targets Telegram Bot API ${{ steps.check.outputs.current_version }}."
 
       - name: Fail clearly when update token is missing
-        if: ${{ steps.plan.outputs.should_generate == 'true' && env.TELEFLOW_UPDATE_TOKEN == '' }}
+        if: ${{ steps.plan.outputs.should_generate == 'true' && steps.existing-update-pr.outputs.exists != 'true' && env.TELEFLOW_UPDATE_TOKEN == '' }}
         shell: pwsh
         run: |
           throw "TeleFlow generated output refresh is required, but TELEFLOW_UPDATE_TOKEN is not configured."
 
       - name: Generate TeleFlow schema update
-        if: ${{ steps.plan.outputs.should_generate == 'true' && env.TELEFLOW_UPDATE_TOKEN != '' }}
+        if: ${{ steps.plan.outputs.should_generate == 'true' && steps.existing-update-pr.outputs.exists != 'true' && env.TELEFLOW_UPDATE_TOKEN != '' }}
         shell: pwsh
         working-directory: generator
         run: ./eng/update-teleflow-schema.ps1 -TeleFlowRoot ../teleflow
 
       - name: Build TeleFlow after generation
-        if: ${{ steps.plan.outputs.should_generate == 'true' && env.TELEFLOW_UPDATE_TOKEN != '' }}
+        if: ${{ steps.plan.outputs.should_generate == 'true' && steps.existing-update-pr.outputs.exists != 'true' && env.TELEFLOW_UPDATE_TOKEN != '' }}
         shell: pwsh
         working-directory: teleflow
         run: dotnet build ./TeleFlow.sln -c Release /nodeReuse:false
 
+      - name: Test TeleFlow after generation
+        if: ${{ steps.plan.outputs.should_generate == 'true' && steps.existing-update-pr.outputs.exists != 'true' && env.TELEFLOW_UPDATE_TOKEN != '' }}
+        shell: pwsh
+        working-directory: teleflow
+        run: dotnet test ./TeleFlow.sln -c Release --no-build /nodeReuse:false --logger "console;verbosity=minimal"
+
+      - name: Verify TeleFlow schema update guardrails
+        if: ${{ steps.plan.outputs.should_generate == 'true' && steps.existing-update-pr.outputs.exists != 'true' && env.TELEFLOW_UPDATE_TOKEN != '' }}
+        shell: pwsh
+        working-directory: teleflow
+        run: ./eng/verify-schema-update-guardrails.ps1 -BaseRef main -SkipFetch
+
       - name: Create TeleFlow update PR
-        if: ${{ steps.plan.outputs.should_generate == 'true' && env.TELEFLOW_UPDATE_TOKEN != '' }}
+        if: ${{ steps.plan.outputs.should_generate == 'true' && steps.existing-update-pr.outputs.exists != 'true' && env.TELEFLOW_UPDATE_TOKEN != '' }}
         uses: peter-evans/create-pull-request@v8
         with:
           path: teleflow
