@@ -1,0 +1,260 @@
+{
+  "Metadata": {
+    "SourceUrl": "https://core.telegram.org/bots/api",
+    "SourceCapturedAtUtc": "2026-07-14T00:00:00+00:00",
+    "SourceSha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "TelegramBotApiVersion": "10.2",
+    "TelegramBotApiReleasedAt": "2026-07-14",
+    "TelegramBotApiChangelogAnchor": "july-14-2026",
+    "SchemaVersion": null,
+    "GeneratorVersion": null
+  },
+  "Categories": [
+    {
+      "Anchor": "available-types",
+      "Title": "Available types",
+      "IsSchemaBearing": true,
+      "IsMixedSchemaCategory": false,
+      "Sections": [
+        {
+          "Anchor": "inputmediaanimation",
+          "Title": "InputMediaAnimation",
+          "Classification": "type",
+          "IgnoreReason": null,
+          "Blocks": [
+            {
+              "Kind": "table",
+              "Text": "",
+              "Html": "",
+              "Inlines": [],
+              "Items": [],
+              "Table": {
+                "Headers": [
+                  { "Text": "Field", "Html": "", "Inlines": [] },
+                  { "Text": "Type", "Html": "", "Inlines": [] },
+                  { "Text": "Description", "Html": "", "Inlines": [] }
+                ],
+                "Rows": [
+                  { "Cells": [
+                    { "Text": "type", "Html": "", "Inlines": [] },
+                    { "Text": "String", "Html": "", "Inlines": [] },
+                    { "Text": "Type of the media, must be animation", "Html": "", "Inlines": [] }
+                  ] },
+                  { "Cells": [
+                    { "Text": "media", "Html": "", "Inlines": [] },
+                    { "Text": "String", "Html": "", "Inlines": [] },
+                    { "Text": "Media to send.", "Html": "", "Inlines": [] }
+                  ] }
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "Anchor": "inputmediaaudio",
+          "Title": "InputMediaAudio",
+          "Classification": "type",
+          "IgnoreReason": null,
+          "Blocks": [
+            {
+              "Kind": "table",
+              "Text": "",
+              "Html": "",
+              "Inlines": [],
+              "Items": [],
+              "Table": {
+                "Headers": [
+                  { "Text": "Field", "Html": "", "Inlines": [] },
+                  { "Text": "Type", "Html": "", "Inlines": [] },
+                  { "Text": "Description", "Html": "", "Inlines": [] }
+                ],
+                "Rows": [
+                  { "Cells": [
+                    { "Text": "type", "Html": "", "Inlines": [] },
+                    { "Text": "String", "Html": "", "Inlines": [] },
+                    { "Text": "Type of the media, must be audio", "Html": "", "Inlines": [] }
+                  ] },
+                  { "Cells": [
+                    { "Text": "media", "Html": "", "Inlines": [] },
+                    { "Text": "String", "Html": "", "Inlines": [] },
+                    { "Text": "Media to send.", "Html": "", "Inlines": [] }
+                  ] }
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "Anchor": "inputmediadocument",
+          "Title": "InputMediaDocument",
+          "Classification": "type",
+          "IgnoreReason": null,
+          "Blocks": [
+            {
+              "Kind": "table",
+              "Text": "",
+              "Html": "",
+              "Inlines": [],
+              "Items": [],
+              "Table": {
+                "Headers": [
+                  { "Text": "Field", "Html": "", "Inlines": [] },
+                  { "Text": "Type", "Html": "", "Inlines": [] },
+                  { "Text": "Description", "Html": "", "Inlines": [] }
+                ],
+                "Rows": [
+                  { "Cells": [
+                    { "Text": "type", "Html": "", "Inlines": [] },
+                    { "Text": "String", "Html": "", "Inlines": [] },
+                    { "Text": "Type of the media, must be document", "Html": "", "Inlines": [] }
+                  ] },
+                  { "Cells": [
+                    { "Text": "media", "Html": "", "Inlines": [] },
+                    { "Text": "String", "Html": "", "Inlines": [] },
+                    { "Text": "Media to send.", "Html": "", "Inlines": [] }
+                  ] }
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "Anchor": "inputmediaphoto",
+          "Title": "InputMediaPhoto",
+          "Classification": "type",
+          "IgnoreReason": null,
+          "Blocks": [
+            {
+              "Kind": "table",
+              "Text": "",
+              "Html": "",
+              "Inlines": [],
+              "Items": [],
+              "Table": {
+                "Headers": [
+                  { "Text": "Field", "Html": "", "Inlines": [] },
+                  { "Text": "Type", "Html": "", "Inlines": [] },
+                  { "Text": "Description", "Html": "", "Inlines": [] }
+                ],
+                "Rows": [
+                  { "Cells": [
+                    { "Text": "type", "Html": "", "Inlines": [] },
+                    { "Text": "String", "Html": "", "Inlines": [] },
+                    { "Text": "Type of the media, must be photo", "Html": "", "Inlines": [] }
+                  ] },
+                  { "Cells": [
+                    { "Text": "media", "Html": "", "Inlines": [] },
+                    { "Text": "String", "Html": "", "Inlines": [] },
+                    { "Text": "Media to send.", "Html": "", "Inlines": [] }
+                  ] }
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "Anchor": "inputmediavideo",
+          "Title": "InputMediaVideo",
+          "Classification": "type",
+          "IgnoreReason": null,
+          "Blocks": [
+            {
+              "Kind": "table",
+              "Text": "",
+              "Html": "",
+              "Inlines": [],
+              "Items": [],
+              "Table": {
+                "Headers": [
+                  { "Text": "Field", "Html": "", "Inlines": [] },
+                  { "Text": "Type", "Html": "", "Inlines": [] },
+                  { "Text": "Description", "Html": "", "Inlines": [] }
+                ],
+                "Rows": [
+                  { "Cells": [
+                    { "Text": "type", "Html": "", "Inlines": [] },
+                    { "Text": "String", "Html": "", "Inlines": [] },
+                    { "Text": "Type of the media, must be video", "Html": "", "Inlines": [] }
+                  ] },
+                  { "Cells": [
+                    { "Text": "media", "Html": "", "Inlines": [] },
+                    { "Text": "String", "Html": "", "Inlines": [] },
+                    { "Text": "Media to send.", "Html": "", "Inlines": [] }
+                  ] }
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "Anchor": "inputmediavoicenote",
+          "Title": "InputMediaVoiceNote",
+          "Classification": "type",
+          "IgnoreReason": null,
+          "Blocks": [
+            {
+              "Kind": "table",
+              "Text": "",
+              "Html": "",
+              "Inlines": [],
+              "Items": [],
+              "Table": {
+                "Headers": [
+                  { "Text": "Field", "Html": "", "Inlines": [] },
+                  { "Text": "Type", "Html": "", "Inlines": [] },
+                  { "Text": "Description", "Html": "", "Inlines": [] }
+                ],
+                "Rows": [
+                  { "Cells": [
+                    { "Text": "type", "Html": "", "Inlines": [] },
+                    { "Text": "String", "Html": "", "Inlines": [] },
+                    { "Text": "Type of the media, must be voice_note", "Html": "", "Inlines": [] }
+                  ] },
+                  { "Cells": [
+                    { "Text": "media", "Html": "", "Inlines": [] },
+                    { "Text": "String", "Html": "", "Inlines": [] },
+                    { "Text": "Media to send.", "Html": "", "Inlines": [] }
+                  ] }
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "Anchor": "inputrichmessagemedia",
+          "Title": "InputRichMessageMedia",
+          "Classification": "type",
+          "IgnoreReason": null,
+          "Blocks": [
+            {
+              "Kind": "table",
+              "Text": "",
+              "Html": "",
+              "Inlines": [],
+              "Items": [],
+              "Table": {
+                "Headers": [
+                  { "Text": "Field", "Html": "", "Inlines": [] },
+                  { "Text": "Type", "Html": "", "Inlines": [] },
+                  { "Text": "Description", "Html": "", "Inlines": [] }
+                ],
+                "Rows": [
+                  { "Cells": [
+                    { "Text": "id", "Html": "", "Inlines": [] },
+                    { "Text": "String", "Html": "", "Inlines": [] },
+                    { "Text": "Unique media identifier.", "Html": "", "Inlines": [] }
+                  ] },
+                  { "Cells": [
+                    { "Text": "media", "Html": "", "Inlines": [] },
+                    { "Text": "InputMediaAnimation or InputMediaAudio or InputMediaPhoto or InputMediaVideo or InputMediaVoiceNote", "Html": "", "Inlines": [] },
+                    { "Text": "Media to send.", "Html": "", "Inlines": [] }
+                  ] }
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
