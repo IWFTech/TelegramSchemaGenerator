@@ -2,7 +2,7 @@
 
 [![CI](https://github.com/IWFTech/TelegramSchemaGenerator/actions/workflows/ci.yml/badge.svg)](https://github.com/IWFTech/TelegramSchemaGenerator/actions/workflows/ci.yml)
 [![CodeQL](https://github.com/IWFTech/TelegramSchemaGenerator/actions/workflows/codeql.yml/badge.svg)](https://github.com/IWFTech/TelegramSchemaGenerator/actions/workflows/codeql.yml)
-[![Telegram Bot API](https://img.shields.io/badge/Telegram%20Bot%20API-10.1-26A5E4)](https://core.telegram.org/bots/api-changelog#june-11-2026)
+[![Telegram Bot API](https://img.shields.io/badge/Telegram%20Bot%20API-10.2-26A5E4)](https://core.telegram.org/bots/api-changelog#june-11-2026)
 [![License](https://img.shields.io/github/license/IWFTech/TelegramSchemaGenerator)](LICENSE)
 [![.NET](https://img.shields.io/badge/.NET-10.0-512BD4)](https://dotnet.microsoft.com/)
 
