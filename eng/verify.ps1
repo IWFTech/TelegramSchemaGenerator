@@ -8,6 +8,7 @@ $repositoryRoot = Split-Path -Parent $PSScriptRoot
 $solutionPath = Join-Path $repositoryRoot "TeleFlow.Telegram.SchemaGenerator.sln"
 $versionBumpCheckPath = Join-Path $PSScriptRoot "check-version-bump.ps1"
 $schemaUpdateSupportCheckPath = Join-Path $PSScriptRoot "verify-update-teleflow-schema-support.ps1"
+$telegramApiMonitorSupportCheckPath = Join-Path $PSScriptRoot "verify-telegram-api-monitor-support.ps1"
 
 function Invoke-CheckedDotNet {
     param([string[]] $Arguments)
@@ -21,6 +22,7 @@ function Invoke-CheckedDotNet {
 
 & $versionBumpCheckPath
 & $schemaUpdateSupportCheckPath
+& $telegramApiMonitorSupportCheckPath
 Invoke-CheckedDotNet @("restore", $solutionPath)
 Invoke-CheckedDotNet @(
     "format",

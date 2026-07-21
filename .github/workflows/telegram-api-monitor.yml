@@ -87,7 +87,8 @@ jobs:
           $latestChangelogAnchor = "${{ steps.check.outputs.latest_changelog_anchor }}"
 
           if ($hasUpdate) {
-            $branch = "schema/update-telegram-bot-api-$latestVersion"
+            $branchPrefix = "schema/update-telegram-bot-api-$latestVersion"
+            $branch = "$branchPrefix-${{ github.run_id }}-${{ github.run_attempt }}"
             $commitMessage = "schema: update Telegram Bot API to $latestVersion"
             $title = "schema: update Telegram Bot API to $latestVersion"
             $summary = @"
@@ -99,7 +100,8 @@ jobs:
           "@
           }
           elseif ($forceRegenerate) {
-            $branch = "schema/refresh-generated-output-${{ github.run_number }}"
+            $branchPrefix = "schema/refresh-generated-output"
+            $branch = "$branchPrefix-${{ github.run_id }}-${{ github.run_attempt }}"
             $commitMessage = "chore(schema): refresh generated Telegram output"
             $title = "chore(schema): refresh generated Telegram output"
             $summary = @"
@@ -110,6 +112,7 @@ jobs:
           }
           else {
             $branch = ""
+            $branchPrefix = ""
             $commitMessage = ""
             $title = ""
             $summary = "- no generated output refresh is required"
@@ -117,6 +120,7 @@ jobs:
 
           "should_generate=$($shouldGenerate.ToString().ToLowerInvariant())" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
           "branch=$branch" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
+          "branch_prefix=$branchPrefix" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
           "commit_message=$commitMessage" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
           "title=$title" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
 
@@ -138,8 +142,10 @@ jobs:
         if: ${{ steps.plan.outputs.should_generate == 'true' }}
         shell: pwsh
         env:
-          TELEFLOW_UPDATE_BRANCH: ${{ steps.plan.outputs.branch }}
+          TELEFLOW_UPDATE_BRANCH_PREFIX: ${{ steps.plan.outputs.branch_prefix }}
         run: |
+          . (Join-Path $env:GITHUB_WORKSPACE "generator/eng/telegram-api-monitor-support.ps1")
+
           $headers = @{
             Accept = "application/vnd.github+json"
             "User-Agent" = "TeleFlow-Schema-Monitor"
@@ -149,10 +155,12 @@ jobs:
             $headers.Authorization = "Bearer $env:TELEFLOW_UPDATE_TOKEN"
           }
 
-          $head = [System.Uri]::EscapeDataString("IWFTech:$env:TELEFLOW_UPDATE_BRANCH")
-          $uri = "https://api.github.com/repos/IWFTech/TeleFlow/pulls?state=open&head=$head&per_page=1"
-          $pullRequests = @(Invoke-RestMethod -Uri $uri -Headers $headers)
-          $existingPullRequest = $pullRequests | Select-Object -First 1
+          $uri = "https://api.github.com/repos/IWFTech/TeleFlow/pulls?state=open&base=main&per_page=100"
+          $pullRequests = Invoke-RestMethod -Uri $uri -Headers $headers
+          $existingPullRequest = Find-OpenTeleFlowSchemaPullRequest `
+            -PullRequests $pullRequests `
+            -RepositoryFullName "IWFTech/TeleFlow" `
+            -BranchPrefix $env:TELEFLOW_UPDATE_BRANCH_PREFIX
           $exists = $null -ne $existingPullRequest
 
           "exists=$($exists.ToString().ToLowerInvariant())" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
