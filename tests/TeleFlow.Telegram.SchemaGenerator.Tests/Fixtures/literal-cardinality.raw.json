@@ -1,0 +1,98 @@
+{
+  "Metadata": {
+    "SourceUrl": "https://core.telegram.org/bots/api",
+    "SourceCapturedAtUtc": "2026-08-05T00:00:00+00:00",
+    "SourceSha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+    "TelegramBotApiVersion": "10.2",
+    "TelegramBotApiReleasedAt": "2026-07-14",
+    "TelegramBotApiChangelogAnchor": "july-14-2026",
+    "SchemaVersion": null,
+    "GeneratorVersion": null
+  },
+  "Categories": [
+    {
+      "Anchor": "available-types",
+      "Title": "Available types",
+      "IsSchemaBearing": true,
+      "IsMixedSchemaCategory": false,
+      "Sections": [
+        {
+          "Anchor": "richblocklistitem",
+          "Title": "RichBlockListItem",
+          "Classification": "type",
+          "IgnoreReason": null,
+          "Blocks": [
+            {
+              "Kind": "table",
+              "Text": "",
+              "Html": "",
+              "Inlines": [],
+              "Items": [],
+              "Table": {
+                "Headers": [
+                  { "Text": "Field", "Html": "", "Inlines": [] },
+                  { "Text": "Type", "Html": "", "Inlines": [] },
+                  { "Text": "Description", "Html": "", "Inlines": [] }
+                ],
+                "Rows": [
+                  {
+                    "Cells": [
+                      { "Text": "type", "Html": "", "Inlines": [] },
+                      { "Text": "String", "Html": "", "Inlines": [] },
+                      { "Text": "Type of the item marker, must be one of “a”, “A”, “i”, “I”, or “1”", "Html": "", "Inlines": [] }
+                    ]
+                  },
+                  {
+                    "Cells": [
+                      { "Text": "value", "Html": "", "Inlines": [] },
+                      { "Text": "Integer", "Html": "", "Inlines": [] },
+                      { "Text": "Item value.", "Html": "", "Inlines": [] }
+                    ]
+                  }
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "Anchor": "inputmediaphoto",
+          "Title": "InputMediaPhoto",
+          "Classification": "type",
+          "IgnoreReason": null,
+          "Blocks": [
+            {
+              "Kind": "table",
+              "Text": "",
+              "Html": "",
+              "Inlines": [],
+              "Items": [],
+              "Table": {
+                "Headers": [
+                  { "Text": "Field", "Html": "", "Inlines": [] },
+                  { "Text": "Type", "Html": "", "Inlines": [] },
+                  { "Text": "Description", "Html": "", "Inlines": [] }
+                ],
+                "Rows": [
+                  {
+                    "Cells": [
+                      { "Text": "type", "Html": "", "Inlines": [] },
+                      { "Text": "String", "Html": "", "Inlines": [] },
+                      { "Text": "Type of the media, must be photo", "Html": "", "Inlines": [] }
+                    ]
+                  },
+                  {
+                    "Cells": [
+                      { "Text": "media", "Html": "", "Inlines": [] },
+                      { "Text": "String", "Html": "", "Inlines": [] },
+                      { "Text": "File to send.", "Html": "", "Inlines": [] }
+                    ]
+                  }
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

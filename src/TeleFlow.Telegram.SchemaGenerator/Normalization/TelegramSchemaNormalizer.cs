@@ -15,10 +15,10 @@ internal static class TelegramSchemaNormalizer
     private static readonly Regex ConditionalOnSuccessReturnedRegex = new(@"On success,\s+if.+?,\s+(?:(?:the|a|an)\s+)?(?<first>.+?)\s+is returned,\s+otherwise\s+(?:(?:the|a|an)\s+)?(?<second>.+?)\s+is returned", RegexOptions.Compiled | RegexOptions.IgnoreCase);
     private static readonly Regex[] LiteralRegexes =
     [
-        new(@"\balways\s+[“""](?<value>[^”""]+)[”""]", RegexOptions.Compiled | RegexOptions.IgnoreCase),
-        new(@"\balways\s+(?<value>[A-Za-z0-9_]+)", RegexOptions.Compiled | RegexOptions.IgnoreCase),
-        new(@"\bmust be\s+[“""](?<value>[^”""]+)[”""]", RegexOptions.Compiled | RegexOptions.IgnoreCase),
-        new(@"\bmust be\s+(?<value>[A-Za-z0-9_]+)", RegexOptions.Compiled | RegexOptions.IgnoreCase)
+        new(@"\balways\s+[“""](?<value>[^”""]+)[”""]\s*(?:\.|$)", RegexOptions.Compiled | RegexOptions.IgnoreCase),
+        new(@"\balways\s+(?<value>[A-Za-z0-9_]+)\s*(?:\.|$)", RegexOptions.Compiled | RegexOptions.IgnoreCase),
+        new(@"\bmust be\s+[“""](?<value>[^”""]+)[”""]\s*(?:\.|$)", RegexOptions.Compiled | RegexOptions.IgnoreCase),
+        new(@"\bmust be\s+(?<value>[A-Za-z0-9_]+)\s*(?:\.|$)", RegexOptions.Compiled | RegexOptions.IgnoreCase)
     ];
     private static readonly HashSet<string> PrimitiveExpressions =
     [
