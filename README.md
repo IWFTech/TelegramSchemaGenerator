@@ -139,7 +139,7 @@ The monitor does not publish NuGet packages. It only creates a reviewable genera
 - Bump `SchemaVersion` when extraction or normalization semantics change.
 - Bump `GeneratorVersion` when generated C# output contract changes.
 - Do not bump versions only because Telegram documentation content changed.
-- The current generated manifest contract is `SchemaVersion = 9` and `GeneratorVersion = 11`.
+- The current generated manifest contract is `SchemaVersion = 10` and `GeneratorVersion = 11`.
 
 `eng/check-version-bump.ps1` enforces this policy in CI for pull requests:
 - changes under `Extraction/`, `Input/`, `Models/`, `Normalization/`, `Parsing/`, `Validation/`, or `Writers/` require a `SchemaVersion` bump

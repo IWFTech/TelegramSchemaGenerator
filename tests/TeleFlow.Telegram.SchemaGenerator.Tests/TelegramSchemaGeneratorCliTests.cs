@@ -14,6 +14,12 @@ public sealed class TelegramSchemaGeneratorCliTests
         "TeleFlow.Telegram.SchemaGenerator.Tests",
         "Fixtures",
         "rich-message-media.raw.json");
+    private static readonly string LiteralCardinalityFixturePath = Path.Combine(
+        RepositoryRoot,
+        "tests",
+        "TeleFlow.Telegram.SchemaGenerator.Tests",
+        "Fixtures",
+        "literal-cardinality.raw.json");
 
     private const string RichMessageMediaUnionExpression =
         "InputMediaAnimation or InputMediaAudio or InputMediaPhoto or InputMediaVideo or InputMediaVoiceNote";
@@ -168,7 +174,7 @@ public sealed class TelegramSchemaGeneratorCliTests
                 .EnumerateArray()
                 .Single(abstraction => abstraction.GetProperty("Name").GetString() == "InputRichMessageMediaItem");
 
-            Assert.Equal(9, metadata.GetProperty("SchemaVersion").GetInt32());
+            Assert.Equal(10, metadata.GetProperty("SchemaVersion").GetInt32());
             Assert.Equal(11, metadata.GetProperty("GeneratorVersion").GetInt32());
             Assert.Equal(RichMessageMediaUnionExpression, union.GetProperty("RawExpression").GetString());
             Assert.Equal("type-union", union.GetProperty("ValueShape").GetString());
@@ -203,6 +209,58 @@ public sealed class TelegramSchemaGeneratorCliTests
             Assert.Contains("public sealed partial record class InputRichMessageMediaItem", unionFile);
             Assert.Contains("public static implicit operator InputRichMessageMediaItem(InputMediaVoiceNote value)", unionFile);
             Assert.Contains("public required InputRichMessageMediaItem Media { get; init; } = null!;", richMessageMediaFile);
+        }
+        finally
+        {
+            tempDirectory.Delete(recursive: true);
+        }
+    }
+
+    [Fact]
+    public void NormalizeAndGenerate_Commands_OnlyInferSingularLiteralRequirements()
+    {
+        var tempDirectory = Directory.CreateTempSubdirectory("teleflow-schema-generator-literal-cardinality-");
+
+        try
+        {
+            var normalizedOutputPath = Path.Combine(tempDirectory.FullName, "normalized.json");
+            var generatedOutputPath = Path.Combine(tempDirectory.FullName, "Schema");
+
+            RunGenerator("normalize", "--input", LiteralCardinalityFixturePath, "--output", normalizedOutputPath);
+
+            using var document = JsonDocument.Parse(IoFile.ReadAllText(normalizedOutputPath));
+            var types = document.RootElement.GetProperty("Types");
+            var listItemType = types
+                .EnumerateArray()
+                .Single(type => type.GetProperty("Name").GetString() == "RichBlockListItem");
+            var listItemDiscriminator = listItemType
+                .GetProperty("Properties")
+                .EnumerateArray()
+                .Single(property => property.GetProperty("TelegramName").GetString() == "type");
+            var mediaType = types
+                .EnumerateArray()
+                .Single(type => type.GetProperty("Name").GetString() == "InputMediaPhoto");
+            var mediaDiscriminator = mediaType
+                .GetProperty("Properties")
+                .EnumerateArray()
+                .Single(property => property.GetProperty("TelegramName").GetString() == "type");
+
+            Assert.Equal(JsonValueKind.Null, listItemDiscriminator.GetProperty("LiteralValue").ValueKind);
+            Assert.Equal("photo", mediaDiscriminator.GetProperty("LiteralValue").GetString());
+
+            RunGenerator(
+                "generate",
+                "--input", normalizedOutputPath,
+                "--generated-output", generatedOutputPath);
+
+            var listItemFile = IoFile.ReadAllText(
+                Path.Combine(generatedOutputPath, "Types", "RichBlockListItem.g.cs"));
+            var mediaFile = IoFile.ReadAllText(
+                Path.Combine(generatedOutputPath, "Types", "InputMediaPhoto.g.cs"));
+
+            Assert.DoesNotContain("IJsonOnDeserialized", listItemFile, StringComparison.Ordinal);
+            Assert.DoesNotContain("TypeValue", listItemFile, StringComparison.Ordinal);
+            Assert.Contains("TypeValue = \"photo\"", mediaFile, StringComparison.Ordinal);
         }
         finally
         {
