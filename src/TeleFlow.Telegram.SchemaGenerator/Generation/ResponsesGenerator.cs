@@ -22,7 +22,6 @@ internal static class ResponsesGenerator
         lines.Add("    public required bool Ok { get; init; }");
         lines.Add(string.Empty);
         lines.Add("    [JsonPropertyName(\"result\")]");
-        lines.Add("    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]");
         lines.Add("    public TResult? Result { get; init; }");
         lines.Add(string.Empty);
         lines.Add("    [JsonPropertyName(\"description\")]");
