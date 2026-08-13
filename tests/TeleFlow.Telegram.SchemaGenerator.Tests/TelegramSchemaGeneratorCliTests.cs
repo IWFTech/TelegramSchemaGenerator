@@ -175,7 +175,7 @@ public sealed class TelegramSchemaGeneratorCliTests
                 .Single(abstraction => abstraction.GetProperty("Name").GetString() == "InputRichMessageMediaItem");
 
             Assert.Equal(10, metadata.GetProperty("SchemaVersion").GetInt32());
-            Assert.Equal(11, metadata.GetProperty("GeneratorVersion").GetInt32());
+            Assert.Equal(12, metadata.GetProperty("GeneratorVersion").GetInt32());
             Assert.Equal(RichMessageMediaUnionExpression, union.GetProperty("RawExpression").GetString());
             Assert.Equal("type-union", union.GetProperty("ValueShape").GetString());
 
@@ -335,7 +335,7 @@ public sealed class TelegramSchemaGeneratorCliTests
             Assert.Equal("june-11-2026", telegramBotApi.GetProperty("changelogAnchor").GetString());
             Assert.Equal("https://core.telegram.org/bots/api-changelog#june-11-2026", telegramBotApi.GetProperty("changelogUrl").GetString());
             Assert.Equal(9, pipeline.GetProperty("schemaVersion").GetInt32());
-            Assert.Equal(11, pipeline.GetProperty("generatorVersion").GetInt32());
+            Assert.Equal(12, pipeline.GetProperty("generatorVersion").GetInt32());
 
             var updateFile = IoFile.ReadAllText(Path.Combine(generatedOutputPath, "Types", "Update.g.cs"));
             AssertUsesLfLineEndings(Path.Combine(generatedOutputPath, "Types", "Update.g.cs"));
@@ -345,6 +345,17 @@ public sealed class TelegramSchemaGeneratorCliTests
             Assert.DoesNotContain("//   Source SHA-256:", updateFile);
             Assert.DoesNotContain("//   Schema version:", updateFile);
             Assert.DoesNotContain("//   Generator version:", updateFile);
+
+            var responseFile = IoFile.ReadAllText(Path.Combine(generatedOutputPath, "Responses", "TelegramApiResponse.g.cs"));
+            Assert.Contains("public TResult? Result { get; init; }", responseFile, StringComparison.Ordinal);
+            Assert.DoesNotContain(
+                "[JsonPropertyName(\"result\")]\n    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]",
+                responseFile,
+                StringComparison.Ordinal);
+            Assert.Contains(
+                "[JsonPropertyName(\"description\")]\n    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]",
+                responseFile,
+                StringComparison.Ordinal);
 
             var clientMethodFile = IoFile.ReadAllText(Path.Combine(telegramOutputPath, "Generated", "Methods", "SendMessageExtensions.g.cs"));
             AssertUsesLfLineEndings(Path.Combine(telegramOutputPath, "Generated", "Methods", "SendMessageExtensions.g.cs"));
@@ -443,7 +454,7 @@ public sealed class TelegramSchemaGeneratorCliTests
             "TelegramBotApiReleasedAt": "2026-06-11",
             "TelegramBotApiChangelogAnchor": "june-11-2026",
             "SchemaVersion": 9,
-            "GeneratorVersion": 11
+            "GeneratorVersion": 12
           },
           "Types": [
             {
