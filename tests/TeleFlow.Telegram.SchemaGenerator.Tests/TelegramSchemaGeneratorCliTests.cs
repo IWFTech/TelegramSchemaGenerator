@@ -174,8 +174,9 @@ public sealed class TelegramSchemaGeneratorCliTests
                 .EnumerateArray()
                 .Single(abstraction => abstraction.GetProperty("Name").GetString() == "InputRichMessageMediaItem");
 
-            Assert.Equal(10, metadata.GetProperty("SchemaVersion").GetInt32());
-            Assert.Equal(12, metadata.GetProperty("GeneratorVersion").GetInt32());
+            Assert.Equal(11, metadata.GetProperty("SchemaVersion").GetInt32());
+            Assert.Equal(13, metadata.GetProperty("GeneratorVersion").GetInt32());
+            Assert.Matches("^[0-9a-f]{64}$", metadata.GetProperty("SemanticFingerprint").GetString()!);
             Assert.Equal(RichMessageMediaUnionExpression, union.GetProperty("RawExpression").GetString());
             Assert.Equal("type-union", union.GetProperty("ValueShape").GetString());
 
@@ -269,7 +270,7 @@ public sealed class TelegramSchemaGeneratorCliTests
     }
 
     [Fact]
-    public void Normalize_Command_ReportsOpaqueUnionExpressionAndNamingRemedy()
+    public void Normalize_Command_UsesConfiguredNameForSafeUnionExtension()
     {
         var tempDirectory = Directory.CreateTempSubdirectory("teleflow-schema-generator-opaque-union-");
 
@@ -285,12 +286,44 @@ public sealed class TelegramSchemaGeneratorCliTests
                 rawOutputPath,
                 fixtureContents.Replace(RichMessageMediaUnionExpression, opaqueUnionExpression, StringComparison.Ordinal));
 
-            var exception = Assert.Throws<InvalidOperationException>(
-                () => RunGenerator("normalize", "--input", rawOutputPath, "--output", normalizedOutputPath));
+            RunGenerator("normalize", "--input", rawOutputPath, "--output", normalizedOutputPath);
 
-            Assert.Contains("prohibited opaque public union names", exception.Message, StringComparison.Ordinal);
-            Assert.Contains(opaqueUnionExpression, exception.Message, StringComparison.Ordinal);
-            Assert.Contains("TelegramUnionNamingRegistry", exception.Message, StringComparison.Ordinal);
+            using var document = JsonDocument.Parse(IoFile.ReadAllText(normalizedOutputPath));
+            Assert.Contains(
+                document.RootElement.GetProperty("Abstractions").EnumerateArray(),
+                abstraction => abstraction.GetProperty("Name").GetString() == "InputRichMessageMediaItem");
+        }
+        finally
+        {
+            tempDirectory.Delete(recursive: true);
+        }
+    }
+
+    [Fact]
+    public void Normalize_Command_RejectsInvalidGeneratorConfiguration()
+    {
+        var tempDirectory = Directory.CreateTempSubdirectory("teleflow-schema-generator-config-");
+
+        try
+        {
+            var configurationPath = Path.Combine(tempDirectory.FullName, "config.yml");
+            var normalizedOutputPath = Path.Combine(tempDirectory.FullName, "normalized.json");
+            IoFile.WriteAllText(
+                configurationPath,
+                "anonymousUnions:\n" +
+                "  - publicName: ExampleUnion\n" +
+                "    members:\n" +
+                "      - InputMediaPhoto\n" +
+                "    evolution: unsafe\n");
+
+            var exception = Assert.Throws<InvalidOperationException>(
+                () => RunGenerator(
+                    "normalize",
+                    "--input", RichMessageMediaFixturePath,
+                    "--output", normalizedOutputPath,
+                    "--configuration", configurationPath));
+
+            Assert.Contains("evolution must be 'exact' or 'additions-only'", exception.Message, StringComparison.Ordinal);
         }
         finally
         {

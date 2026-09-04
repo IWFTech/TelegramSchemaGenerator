@@ -4,7 +4,9 @@ param(
 
     [string] $SourceUrl = "https://core.telegram.org/bots/api",
     [string] $Configuration = "Release",
-    [string] $OutputPath = ""
+    [string] $OutputPath = "",
+    [string] $GeneratorConfiguration = ".tg-schema-generator/config.yml",
+    [string] $FailureOutputPath = ""
 )
 
 $ErrorActionPreference = "Stop"
@@ -16,9 +18,11 @@ function Invoke-CheckedDotNet {
     param([string[]] $Arguments)
 
     Write-Host "dotnet $($Arguments -join ' ')"
-    & dotnet @Arguments
+    $output = @(& dotnet @Arguments 2>&1)
+    $output | ForEach-Object { Write-Host $_ }
     if ($LASTEXITCODE -ne 0) {
-        throw "dotnet command failed with exit code $LASTEXITCODE."
+        $details = [string]::Join([Environment]::NewLine, $output)
+        throw "dotnet command failed with exit code $LASTEXITCODE.`n$details"
     }
 }
 
@@ -43,6 +47,7 @@ function Get-GeneratedMetadata {
         $version = [string] $manifest.telegramBotApi.version
         $release = [string] $manifest.telegramBotApi.releasedAt
         $changelog = [string] $manifest.telegramBotApi.changelogUrl
+        $semanticFingerprint = [string] $manifest.source.semanticFingerprint
 
         if ([string]::IsNullOrWhiteSpace($version)) {
             throw "Could not read Telegram Bot API version from '$path'."
@@ -52,6 +57,7 @@ function Get-GeneratedMetadata {
             Version = $version
             ReleaseDate = $release
             ChangelogUrl = $changelog
+            SemanticFingerprint = $semanticFingerprint
             SourcePath = $path
         }
     }
@@ -79,6 +85,7 @@ function Get-GeneratedMetadata {
             Version = $version
             ReleaseDate = $release
             ChangelogUrl = $changelog
+            SemanticFingerprint = ""
             SourcePath = $path
         }
     }
@@ -91,6 +98,7 @@ New-Item -ItemType Directory -Path $tempDirectory | Out-Null
 
 try {
     $rawPath = Join-Path $tempDirectory "telegram-bot-api.raw.json"
+    $normalizedPath = Join-Path $tempDirectory "telegram-bot-api.normalized.json"
     Invoke-CheckedDotNet @(
         "run",
         "--project",
@@ -102,22 +110,45 @@ try {
         "--url",
         $SourceUrl,
         "--output",
-        $rawPath)
+        $rawPath,
+        "--configuration",
+        $GeneratorConfiguration)
 
     $raw = Get-Content -Raw -LiteralPath $rawPath | ConvertFrom-Json
+    Invoke-CheckedDotNet @(
+        "run",
+        "--project",
+        $generatorProject,
+        "-c",
+        $Configuration,
+        "--",
+        "normalize",
+        "--input",
+        $rawPath,
+        "--output",
+        $normalizedPath,
+        "--configuration",
+        $GeneratorConfiguration)
+
+    $normalized = Get-Content -Raw -LiteralPath $normalizedPath | ConvertFrom-Json
     $latest = [ordered]@{
         Version = [string] $raw.Metadata.TelegramBotApiVersion
         ReleaseDate = [string] $raw.Metadata.TelegramBotApiReleasedAt
         ChangelogAnchor = [string] $raw.Metadata.TelegramBotApiChangelogAnchor
         SourceUrl = [string] $raw.Metadata.SourceUrl
         SourceSha256 = [string] $raw.Metadata.SourceSha256
+        SemanticFingerprint = [string] $normalized.Metadata.SemanticFingerprint
     }
 
     $current = Get-GeneratedMetadata $TeleFlowRoot
-    $hasUpdate = $current.Version -ne $latest.Version
+    $hasVersionUpdate = $current.Version -ne $latest.Version
+    $hasSemanticUpdate = $current.SemanticFingerprint -ne $latest.SemanticFingerprint
+    $hasUpdate = $hasVersionUpdate -or $hasSemanticUpdate
 
     $result = [ordered]@{
         HasUpdate = $hasUpdate
+        HasVersionUpdate = $hasVersionUpdate
+        HasSemanticUpdate = $hasSemanticUpdate
         Current = $current
         Latest = $latest
     }
@@ -136,12 +167,71 @@ try {
     }
 
     if (-not [string]::IsNullOrWhiteSpace($env:GITHUB_OUTPUT)) {
+        "schema_error=false" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
         "has_update=$($hasUpdate.ToString().ToLowerInvariant())" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
+        "has_version_update=$($hasVersionUpdate.ToString().ToLowerInvariant())" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
+        "has_semantic_update=$($hasSemanticUpdate.ToString().ToLowerInvariant())" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
         "current_version=$($current.Version)" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
         "latest_version=$($latest.Version)" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
         "latest_release_date=$($latest.ReleaseDate)" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
         "latest_changelog_anchor=$($latest.ChangelogAnchor)" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
     }
+}
+catch {
+    if ($_.Exception.Message -notmatch "SCHEMA_CONFIGURATION_REQUIRED") {
+        throw
+    }
+
+    $failureDirectory = if ([string]::IsNullOrWhiteSpace($FailureOutputPath)) {
+        $tempDirectory
+    }
+    else {
+        $FailureOutputPath
+    }
+
+    New-Item -ItemType Directory -Path $failureDirectory -Force | Out-Null
+    $diagnosticsPath = Join-Path $failureDirectory "schema-diagnostics.json"
+    $diagnostics = [ordered]@{
+        Status = "configuration-required"
+        Message = $_.Exception.Message
+        ExceptionType = $_.Exception.GetType().FullName
+        SourceUrl = $SourceUrl
+        GeneratorConfiguration = $GeneratorConfiguration
+        GeneratedAtUtc = [DateTimeOffset]::UtcNow.ToString("O")
+    }
+    $diagnostics | ConvertTo-Json -Depth 8 | Set-Content -LiteralPath $diagnosticsPath -Encoding UTF8
+
+    if (Test-Path -LiteralPath $rawPath) {
+        Copy-Item -LiteralPath $rawPath -Destination (Join-Path $failureDirectory "telegram-bot-api.raw.json") -Force
+    }
+
+    $failureResult = [ordered]@{
+        Status = "configuration-required"
+        HasUpdate = $false
+        DiagnosticsPath = $diagnosticsPath
+        Diagnostics = $diagnostics
+    }
+    $failureJson = $failureResult | ConvertTo-Json -Depth 8
+    if ([string]::IsNullOrWhiteSpace($OutputPath)) {
+        Write-Output $failureJson
+    }
+    else {
+        $outputDirectory = Split-Path -Parent $OutputPath
+        if (-not [string]::IsNullOrWhiteSpace($outputDirectory)) {
+            New-Item -ItemType Directory -Path $outputDirectory -Force | Out-Null
+        }
+
+        Set-Content -LiteralPath $OutputPath -Value $failureJson -Encoding UTF8
+    }
+
+    if (-not [string]::IsNullOrWhiteSpace($env:GITHUB_OUTPUT)) {
+        "schema_error=true" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
+        "has_update=false" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
+        "has_version_update=false" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
+        "has_semantic_update=false" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
+    }
+
+    Write-Warning "Telegram Bot API schema generation requires a configuration decision: $($_.Exception.Message)"
 }
 finally {
     Remove-Item -LiteralPath $tempDirectory -Recurse -Force -ErrorAction SilentlyContinue

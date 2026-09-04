@@ -1,62 +1,20 @@
 using System.Text.RegularExpressions;
+using TeleFlow.Telegram.SchemaGenerator.Configuration;
 using TeleFlow.Telegram.SchemaGenerator.Models;
 
 namespace TeleFlow.Telegram.SchemaGenerator.Normalization;
 
 internal static class TelegramConstantGroupExtractor
 {
-    private static readonly Regex QuotedTelegramValueRegex = new(
-        "[\"“'](?<value>[a-zA-Z0-9_:-]+)[\"”']",
-        RegexOptions.Compiled);
-
-    private static readonly DiscriminatorNameRule[] DiscriminatorNameRules =
-    [
-        new("source", "Source", "Sources"),
-        new("status", "Status", "Statuses"),
-        new("style", "Style", "Styles"),
-        new("type", "Type", "Types")
-    ];
-
-    private static readonly ConstantGroupSpec[] Specs =
-    [
-        new(
-            "ButtonStyles",
-            "Known Telegram Bot API button style values.",
-            QuotedTelegramValueRegex,
-            [
-                new("InlineKeyboardButton", "style"),
-                new("KeyboardButton", "style")
-            ],
-            []),
-        new(
-            "ChatTypes",
-            "Known Telegram Bot API chat type values.",
-            QuotedTelegramValueRegex,
-            [
-                new("Chat", "type")
-            ],
-            [
-                new("sender")
-            ]),
-        new(
-            "ReactionTypes",
-            "Known Telegram Bot API reaction type values.",
-            QuotedTelegramValueRegex,
-            [
-                new("ReactionTypeEmoji", "type"),
-                new("ReactionTypeCustomEmoji", "type"),
-                new("ReactionTypePaid", "type")
-            ],
-            [])
-    ];
-
-    public static IReadOnlyList<NormalizedTelegramConstantGroup> Extract(IReadOnlyList<NormalizedTelegramType> types)
+    public static IReadOnlyList<NormalizedTelegramConstantGroup> Extract(
+        IReadOnlyList<NormalizedTelegramType> types,
+        GeneratorConfiguration configuration)
     {
         var typesByName = types.ToDictionary(static type => type.Name, StringComparer.Ordinal);
         var groups = new List<NormalizedTelegramConstantGroup>();
 
-        groups.AddRange(ExtractConfiguredGroups(typesByName));
-        groups.AddRange(ExtractUnionDiscriminatorGroups(types));
+        groups.AddRange(ExtractConfiguredGroups(typesByName, configuration));
+        groups.AddRange(ExtractUnionDiscriminatorGroups(types, configuration));
 
         return MergeGroups(groups)
             .OrderBy(static group => group.Name, StringComparer.Ordinal)
@@ -64,10 +22,12 @@ internal static class TelegramConstantGroupExtractor
     }
 
     private static IEnumerable<NormalizedTelegramConstantGroup> ExtractConfiguredGroups(
-        Dictionary<string, NormalizedTelegramType> typesByName)
+        Dictionary<string, NormalizedTelegramType> typesByName,
+        GeneratorConfiguration configuration)
     {
-        foreach (var spec in Specs)
+        foreach (var spec in configuration.ConstantGroups)
         {
+            var valueRegex = new Regex(spec.ValuePattern, RegexOptions.Compiled | RegexOptions.CultureInvariant);
             var values = new SortedSet<string>(StringComparer.Ordinal);
             var sources = new List<NormalizedTelegramConstantSource>();
             var extractedValueCount = 0;
@@ -80,13 +40,13 @@ internal static class TelegramConstantGroupExtractor
                 }
 
                 var property = type.Properties.FirstOrDefault(property =>
-                    property.TelegramName.Equals(source.TelegramName, StringComparison.Ordinal));
+                    property.TelegramName.Equals(source.PropertyName, StringComparison.Ordinal));
                 if (property is null)
                 {
                     continue;
                 }
 
-                sources.Add(new NormalizedTelegramConstantSource(source.TypeName, source.TelegramName));
+                sources.Add(new NormalizedTelegramConstantSource(source.TypeName, source.PropertyName));
 
                 if (!string.IsNullOrWhiteSpace(property.LiteralValue))
                 {
@@ -94,7 +54,7 @@ internal static class TelegramConstantGroupExtractor
                     extractedValueCount++;
                 }
 
-                foreach (Match match in spec.ValueRegex.Matches(property.Summary))
+                foreach (Match match in valueRegex.Matches(property.Summary))
                 {
                     values.Add(match.Groups["value"].Value);
                     extractedValueCount++;
@@ -114,7 +74,7 @@ internal static class TelegramConstantGroupExtractor
 
             foreach (var value in spec.StaticValues)
             {
-                values.Add(value.Value);
+                values.Add(value);
             }
 
             yield return new NormalizedTelegramConstantGroup(
@@ -131,7 +91,8 @@ internal static class TelegramConstantGroupExtractor
     }
 
     private static IEnumerable<NormalizedTelegramConstantGroup> ExtractUnionDiscriminatorGroups(
-        IReadOnlyList<NormalizedTelegramType> types)
+        IReadOnlyList<NormalizedTelegramType> types,
+        GeneratorConfiguration configuration)
     {
         foreach (var type in types)
         {
@@ -161,7 +122,7 @@ internal static class TelegramConstantGroupExtractor
                 .ToHashSet(StringComparer.Ordinal);
 
             yield return new NormalizedTelegramConstantGroup(
-                ToUnionConstantGroupName(type.Name, discriminatorProperty),
+                ToUnionConstantGroupName(type.Name, discriminatorProperty, configuration),
                 $"Known Telegram Bot API {type.Name} {discriminatorProperty} values.",
                 cases
                     .Select(unionCase => new NormalizedTelegramConstantSource(unionCase.RawType, discriminatorProperty))
@@ -220,10 +181,13 @@ internal static class TelegramConstantGroupExtractor
         return new NormalizedTelegramConstantValue(name, telegramValue);
     }
 
-    private static string ToUnionConstantGroupName(string ownerTypeName, string discriminatorProperty)
+    private static string ToUnionConstantGroupName(
+        string ownerTypeName,
+        string discriminatorProperty,
+        GeneratorConfiguration configuration)
     {
-        var rule = DiscriminatorNameRules.FirstOrDefault(rule =>
-            rule.DiscriminatorProperty.Equals(discriminatorProperty, StringComparison.Ordinal));
+        var rule = configuration.DiscriminatorNames.FirstOrDefault(rule =>
+            rule.PropertyName.Equals(discriminatorProperty, StringComparison.Ordinal));
 
         if (rule is null)
         {
@@ -263,21 +227,4 @@ internal static class TelegramConstantGroupExtractor
         return char.IsDigit(name[0]) ? "Value" + name : name;
     }
 
-    private sealed record ConstantGroupSpec(
-        string Name,
-        string Summary,
-        Regex ValueRegex,
-        IReadOnlyList<ConstantSourceSpec> Sources,
-        IReadOnlyList<ConstantValueSpec> StaticValues);
-
-    private sealed record ConstantSourceSpec(
-        string TypeName,
-        string TelegramName);
-
-    private sealed record ConstantValueSpec(string Value);
-
-    private sealed record DiscriminatorNameRule(
-        string DiscriminatorProperty,
-        string OwnerTypeSuffix,
-        string GroupNameSuffix);
 }

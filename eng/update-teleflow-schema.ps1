@@ -3,7 +3,8 @@ param(
     [string] $TeleFlowRoot,
 
     [string] $SourceUrl = "https://core.telegram.org/bots/api",
-    [string] $Configuration = "Release"
+    [string] $Configuration = "Release",
+    [string] $GeneratorConfiguration = ".tg-schema-generator/config.yml"
 )
 
 $ErrorActionPreference = "Stop"
@@ -17,9 +18,11 @@ function Invoke-CheckedDotNet {
     param([string[]] $Arguments)
 
     Write-Host "dotnet $($Arguments -join ' ')"
-    & dotnet @Arguments
+    $output = @(& dotnet @Arguments 2>&1)
+    $output | ForEach-Object { Write-Host $_ }
     if ($LASTEXITCODE -ne 0) {
-        throw "dotnet command failed with exit code $LASTEXITCODE."
+        $details = [string]::Join([Environment]::NewLine, $output)
+        throw "dotnet command failed with exit code $LASTEXITCODE.`n$details"
     }
 }
 
@@ -71,6 +74,8 @@ try {
         "all",
         "--url",
         $SourceUrl,
+        "--configuration",
+        $GeneratorConfiguration,
         "--raw-output",
         $rawOutput,
         "--normalized-output",

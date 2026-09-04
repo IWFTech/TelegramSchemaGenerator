@@ -14,6 +14,7 @@ on:
 permissions:
   contents: read
   pull-requests: read
+  issues: write
 
 concurrency:
   group: telegram-api-monitor
@@ -57,13 +58,24 @@ jobs:
         run: |
           ./eng/check-telegram-bot-api.ps1 `
             -TeleFlowRoot ../teleflow `
-            -OutputPath ../telegram-bot-api-check.json
+            -OutputPath ../telegram-bot-api-check.json `
+            -FailureOutputPath ../telegram-api-monitor-artifacts
 
       - name: Publish check summary
         shell: pwsh
         run: |
           $result = Get-Content -Raw -LiteralPath telegram-bot-api-check.json | ConvertFrom-Json
           $forceRegenerate = "${{ github.event_name == 'workflow_dispatch' && inputs.force_regenerate == true }}"
+          if ($result.Status -eq "configuration-required") {
+            @"
+          ## Telegram Bot API monitor
+
+          Schema processing stopped and requires a configuration decision.
+          Message: $($result.Diagnostics.Message)
+          "@ | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Append
+            exit 0
+          }
+
           @"
           ## Telegram Bot API monitor
 
@@ -74,19 +86,74 @@ jobs:
           Force regenerate: $forceRegenerate
           "@ | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Append
 
+      - name: Upload schema diagnostics
+        if: ${{ steps.check.outputs.schema_error == 'true' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: telegram-schema-diagnostics-${{ github.run_id }}
+          path: telegram-api-monitor-artifacts
+          if-no-files-found: error
+          retention-days: 90
+
+      - name: Create schema configuration issue
+        if: ${{ steps.check.outputs.schema_error == 'true' }}
+        uses: actions/github-script@v7
+        env:
+          CHECK_PATH: telegram-bot-api-check.json
+        with:
+          script: |
+            const fs = require('fs');
+            const check = JSON.parse(fs.readFileSync(process.env.CHECK_PATH, 'utf8'));
+            const title = '[Telegram Schema] Configuration decision required';
+            const { owner, repo } = context.repo;
+            const openIssues = await github.paginate(github.rest.issues.listForRepo, {
+              owner,
+              repo,
+              state: 'open',
+              per_page: 100
+            });
+            const existingIssue = openIssues.find(issue => issue.title === title);
+            if (existingIssue) {
+              await github.rest.issues.createComment({
+                owner,
+                repo,
+                issue_number: existingIssue.number,
+                body: `Another schema configuration failure was detected in workflow run ${context.serverUrl}/${owner}/${repo}/actions/runs/${context.runId}.\n\nMessage: ${check.Diagnostics.Message}`
+              });
+              return;
+            }
+
+            const diagnostics = check.Diagnostics;
+            const body = [
+              '## Summary',
+              'Telegram Bot API schema processing stopped because a semantic configuration decision is required.',
+              '',
+              `Message: ${diagnostics.Message}`,
+              `Source URL: ${diagnostics.SourceUrl}`,
+              `Configuration: ${diagnostics.GeneratorConfiguration}`,
+              '',
+              `Workflow run: ${context.serverUrl}/${owner}/${repo}/actions/runs/${context.runId}`,
+              '',
+              'The raw snapshot and diagnostics are available in the workflow artifacts. Add or adjust the typed generator override, then rerun the monitor.'
+            ].join('\n');
+            await github.rest.issues.create({ owner, repo, title, body });
+
       - name: Resolve generation plan
         id: plan
         shell: pwsh
         run: |
           $hasUpdate = "${{ steps.check.outputs.has_update }}" -eq "true"
+          $schemaError = "${{ steps.check.outputs.schema_error }}" -eq "true"
+          $hasVersionUpdate = "${{ steps.check.outputs.has_version_update }}" -eq "true"
+          $hasSemanticUpdate = "${{ steps.check.outputs.has_semantic_update }}" -eq "true"
           $forceRegenerate = "${{ github.event_name == 'workflow_dispatch' && inputs.force_regenerate == true }}" -eq "true"
-          $shouldGenerate = $hasUpdate -or $forceRegenerate
+          $shouldGenerate = -not $schemaError -and ($hasUpdate -or $forceRegenerate)
           $currentVersion = "${{ steps.check.outputs.current_version }}"
           $latestVersion = "${{ steps.check.outputs.latest_version }}"
           $latestReleaseDate = "${{ steps.check.outputs.latest_release_date }}"
           $latestChangelogAnchor = "${{ steps.check.outputs.latest_changelog_anchor }}"
 
-          if ($hasUpdate) {
+          if ($hasVersionUpdate) {
             $branchPrefix = "schema/update-telegram-bot-api-$latestVersion"
             $branch = "$branchPrefix-${{ github.run_id }}-${{ github.run_attempt }}"
             $commitMessage = "schema: update Telegram Bot API to $latestVersion"
@@ -99,7 +166,7 @@ jobs:
           - changelog anchor: $latestChangelogAnchor
           "@
           }
-          elseif ($forceRegenerate) {
+          elseif ($hasSemanticUpdate -or $forceRegenerate) {
             $branchPrefix = "schema/refresh-generated-output"
             $branch = "$branchPrefix-${{ github.run_id }}-${{ github.run_attempt }}"
             $commitMessage = "chore(schema): refresh generated Telegram output"
@@ -119,6 +186,9 @@ jobs:
           }
 
           "should_generate=$($shouldGenerate.ToString().ToLowerInvariant())" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
+          "schema_error=$($schemaError.ToString().ToLowerInvariant())" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
+          "has_version_update=$($hasVersionUpdate.ToString().ToLowerInvariant())" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
+          "has_semantic_update=$($hasSemanticUpdate.ToString().ToLowerInvariant())" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
           "branch=$branch" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
           "branch_prefix=$branchPrefix" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
           "commit_message=$commitMessage" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
@@ -169,8 +239,13 @@ jobs:
             Write-Host "A matching TeleFlow update pull request is already open: $($existingPullRequest.html_url)"
           }
 
+      - name: Report schema configuration requirement
+        if: ${{ steps.check.outputs.schema_error == 'true' }}
+        shell: pwsh
+        run: Write-Host "Schema processing requires a configuration decision. See the issue and uploaded diagnostics."
+
       - name: Stop when no update, refresh, or new pull request is required
-        if: ${{ steps.plan.outputs.should_generate != 'true' || steps.existing-update-pr.outputs.exists == 'true' }}
+        if: ${{ steps.check.outputs.schema_error != 'true' && (steps.plan.outputs.should_generate != 'true' || steps.existing-update-pr.outputs.exists == 'true') }}
         shell: pwsh
         run: |
           if ("${{ steps.existing-update-pr.outputs.exists }}" -eq "true") {

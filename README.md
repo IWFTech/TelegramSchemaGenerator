@@ -20,6 +20,7 @@ src/TeleFlow.Telegram.SchemaGenerator/      CLI, parser, normalizer, generators
 tests/TeleFlow.Telegram.SchemaGenerator.Tests/  CLI and regression tests
 eng/                                      local verification and automation scripts
 .github/workflows/                       CI, CodeQL, Telegram Bot API monitor
+.tg-schema-generator/                    human-owned semantic generator configuration
 ```
 
 Snapshot metadata:
@@ -30,6 +31,7 @@ Snapshot metadata:
   - `TelegramBotApiVersion`
   - `TelegramBotApiReleasedAt`
   - `TelegramBotApiChangelogAnchor`
+  - `SemanticFingerprint` (normalized snapshots only)
 - `normalized` snapshot additionally contains:
   - `SchemaVersion`
   - `GeneratorVersion`
@@ -43,7 +45,11 @@ Volatile provenance is written once to `TeleFlow.Telegram.Schema/telegram-bot-ap
 - schema pipeline version
 - generator output contract version
 
-The main TeleFlow repository does not keep Telegram documentation snapshots. `eng/update-teleflow-schema.ps1` uses temporary raw and normalized snapshots, then writes generated C# output, the generated manifest, and the public Telegram Bot API badge metadata.
+The main TeleFlow repository does not keep Telegram documentation snapshots. `eng/update-teleflow-schema.ps1` uses temporary raw and normalized snapshots, then writes generated C# output, the generated manifest, and the public Telegram Bot API badge metadata. The monitor keeps raw, normalized, and diagnostic snapshots as CI artifacts for failed or reviewable runs; they are not committed to either repository.
+
+The `.tg-schema-generator/` directory is the human-owned semantic configuration surface. It contains typed, validated YAML rules for public anonymous union names, named union strategies, generated constant groups, and discriminator naming. Parser grammar and HTML extraction remain code-owned. Generated output and diagnostics must not be edited manually.
+
+Known anonymous unions may opt into `additions-only` evolution. A new known Telegram type can then extend an existing semantic union when all previous members remain and there is no ambiguous match. Unsafe changes fail closed and require an explicit configuration decision.
 
 The runtime Telegram output is intentionally separate from `TeleFlow.Telegram.Schema`:
 - schema DTOs, methods, responses, and abstractions are written to `TeleFlow.Telegram.Schema`
@@ -80,6 +86,8 @@ Generate the schema project and Telegram runtime client extensions:
 dotnet run --project .\src\TeleFlow.Telegram.SchemaGenerator\TeleFlow.Telegram.SchemaGenerator.csproj -- generate --input ".\artifacts\telegram-bot-api\normalized\telegram-bot-api.normalized.json" --generated-output "$teleflow\src\TeleFlow.Telegram.Schema" --telegram-output "$teleflow\src\TeleFlow.Telegram.Client"
 ```
 
+All stages that normalize or generate use `.tg-schema-generator/config.yml` by default. A different configuration can be supplied explicitly with `--configuration <path>`.
+
 Run the full pipeline:
 
 ```powershell
@@ -102,9 +110,9 @@ This runs schema update support checks, restore, formatting verification, build,
 
 `Telegram Bot API Monitor` runs on a schedule and compares the latest official Telegram docs with the generated output currently checked into `IWFTech/TeleFlow`.
 
-When a new Telegram Bot API version is detected, the workflow can generate a TeleFlow update branch and open a pull request.
+When a new Telegram Bot API version or a semantic documentation change is detected, the workflow generates a TeleFlow update branch and opens a pull request. Safe additions to an explicitly configured anonymous union are accepted automatically when all existing members remain, all new members are known schema types, and the match is unambiguous.
 
-The workflow also supports manual generated-output refreshes. Run `Telegram Bot API Monitor` from GitHub Actions with `force_regenerate=true` when the Telegram Bot API version stayed the same but generator output semantics changed. This reparses the current Telegram docs, regenerates TeleFlow output with the current generator, builds and tests TeleFlow, and opens a refresh pull request only when the generated output has a diff.
+The workflow also supports manual generated-output refreshes with `force_regenerate=true`. The monitor compares the normalized semantic fingerprint, so a same-version documentation change creates a refresh pull request automatically while capture-time-only changes do not.
 
 An open generated-output pull request is intentionally never rewritten by a later monitor run. The workflow reports the existing pull request and stops. If that pull request is closed without merging, the next monitor attempt uses a new branch instead of rewriting the closed review branch.
 
@@ -129,6 +137,8 @@ The token must be able to push branches and open pull requests in `IWFTech/TeleF
 
 The monitor does not publish NuGet packages. It only creates a reviewable generated-output PR.
 
+If parsing or normalization requires a semantic decision, the workflow does not create an empty PR. It uploads the raw snapshot and diagnostics for 90 days and opens one deduplicated GitHub issue. After the configuration is reviewed and merged, rerun the monitor to generate the TeleFlow pull request.
+
 ## Review Order
 1. generator tool changes
 2. generated schema output
@@ -139,7 +149,7 @@ The monitor does not publish NuGet packages. It only creates a reviewable genera
 - Bump `SchemaVersion` when extraction or normalization semantics change.
 - Bump `GeneratorVersion` when generated C# output contract changes.
 - Do not bump versions only because Telegram documentation content changed.
-- The current generated manifest contract is `SchemaVersion = 10` and `GeneratorVersion = 11`.
+- The current generated manifest contract is `SchemaVersion = 11` and `GeneratorVersion = 13`.
 
 `eng/check-version-bump.ps1` enforces this policy in CI for pull requests:
 - changes under `Extraction/`, `Input/`, `Models/`, `Normalization/`, `Parsing/`, `Validation/`, or `Writers/` require a `SchemaVersion` bump

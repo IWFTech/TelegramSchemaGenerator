@@ -1,4 +1,5 @@
 using System.Text.RegularExpressions;
+using TeleFlow.Telegram.SchemaGenerator.Configuration;
 using TeleFlow.Telegram.SchemaGenerator.Models;
 
 namespace TeleFlow.Telegram.SchemaGenerator.Validation;
@@ -122,9 +123,9 @@ internal static class TelegramSchemaValidator
 
         if (invalidOpaqueAbstractions.Length > 0)
         {
-            throw new InvalidOperationException(
+            throw new GeneratorConfigurationException(
                 "The normalized schema contains prohibited opaque public union names. " +
-                "Register a semantic name in TelegramUnionNamingRegistry for: " +
+                "Register a semantic name in the generator configuration for: " +
                 string.Join(
                     "; ",
                     invalidOpaqueAbstractions.Select(static abstraction =>

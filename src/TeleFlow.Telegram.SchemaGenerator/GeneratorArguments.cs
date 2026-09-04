@@ -9,9 +9,11 @@ internal sealed record GeneratorArguments(
     string? GeneratedOutputPath,
     string? TelegramOutputPath,
     string? InputHtmlPath,
-    string? SourceUrl)
+    string? SourceUrl,
+    string? ConfigurationPath)
 {
     public const string DefaultSourceUrl = "https://core.telegram.org/bots/api";
+    public const string DefaultConfigurationPath = ".tg-schema-generator/config.yml";
 
     public static GeneratorArguments Parse(string[] args)
     {
@@ -37,6 +39,7 @@ internal sealed record GeneratorArguments(
         string? telegramOutputPath = null;
         string? inputHtmlPath = null;
         string? sourceUrl = null;
+        string? configurationPath = null;
 
         for (var index = 1; index < args.Length; index++)
         {
@@ -66,6 +69,9 @@ internal sealed record GeneratorArguments(
                 case "--url":
                     sourceUrl = GetValue(args, ++index, "--url");
                     break;
+                case "--configuration":
+                    configurationPath = GetValue(args, ++index, "--configuration");
+                    break;
                 default:
                     throw new InvalidOperationException($"Unknown argument '{args[index]}'.");
             }
@@ -80,7 +86,13 @@ internal sealed record GeneratorArguments(
             ResolvePath(generatedOutputPath),
             ResolvePath(telegramOutputPath),
             ResolvePath(inputHtmlPath),
-            sourceUrl);
+            sourceUrl,
+            ResolvePath(configurationPath));
+    }
+
+    public string GetRequiredConfigurationPath()
+    {
+        return ConfigurationPath ?? Path.GetFullPath(DefaultConfigurationPath);
     }
 
     public string GetRequiredInputPath(string stage)
