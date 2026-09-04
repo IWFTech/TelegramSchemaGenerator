@@ -8,4 +8,5 @@ internal sealed record TelegramSchemaMetadata(
     string? TelegramBotApiReleasedAt,
     string? TelegramBotApiChangelogAnchor,
     int? SchemaVersion,
-    int? GeneratorVersion);
+    int? GeneratorVersion,
+    string? SemanticFingerprint);

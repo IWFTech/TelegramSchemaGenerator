@@ -37,6 +37,7 @@ internal static class SchemaMetadataFactory
             botApiMetadata.ReleasedAt,
             botApiMetadata.ChangelogAnchor,
             null,
+            null,
             null);
     }
 

@@ -22,7 +22,8 @@ internal static class TelegramBotApiManifestWriter
             Source: new TelegramBotApiSourceManifest(
                 Url: metadata.SourceUrl,
                 CapturedAtUtc: metadata.SourceCapturedAtUtc.ToUniversalTime(),
-                Sha256: metadata.SourceSha256),
+                Sha256: metadata.SourceSha256,
+                SemanticFingerprint: metadata.SemanticFingerprint),
             TelegramBotApi: new TelegramBotApiVersionManifest(
                 Version: Require(metadata.TelegramBotApiVersion, nameof(metadata.TelegramBotApiVersion)),
                 ReleasedAt: Require(metadata.TelegramBotApiReleasedAt, nameof(metadata.TelegramBotApiReleasedAt)),
@@ -59,7 +60,10 @@ internal static class TelegramBotApiManifestWriter
     private sealed record TelegramBotApiSourceManifest(
         [property: JsonPropertyName("url")] string Url,
         [property: JsonPropertyName("capturedAtUtc")] DateTimeOffset CapturedAtUtc,
-        [property: JsonPropertyName("sha256")] string Sha256);
+        [property: JsonPropertyName("sha256")] string Sha256,
+        [property: JsonPropertyName("semanticFingerprint")]
+        [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        string? SemanticFingerprint);
 
     private sealed record TelegramBotApiVersionManifest(
         [property: JsonPropertyName("version")] string Version,

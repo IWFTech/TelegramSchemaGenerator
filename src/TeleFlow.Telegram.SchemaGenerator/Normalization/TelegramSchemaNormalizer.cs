@@ -1,6 +1,7 @@
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.RegularExpressions;
+using TeleFlow.Telegram.SchemaGenerator.Configuration;
 using TeleFlow.Telegram.SchemaGenerator.Input;
 using TeleFlow.Telegram.SchemaGenerator.Models;
 
@@ -30,7 +31,9 @@ internal static class TelegramSchemaNormalizer
         "True"
     ];
 
-    public static NormalizedTelegramSchema Normalize(RawTelegramApiSnapshot raw)
+    public static NormalizedTelegramSchema Normalize(
+        RawTelegramApiSnapshot raw,
+        GeneratorConfiguration configuration)
     {
         var sections = raw.Categories
             .SelectMany(static category => category.Sections
@@ -47,42 +50,53 @@ internal static class TelegramSchemaNormalizer
             .ToHashSet(StringComparer.Ordinal);
 
         var types = typeSections
-            .Select(section => NormalizeType(section, knownTypeNames))
+            .Select(section => NormalizeType(section, knownTypeNames, configuration))
             .OrderBy(static item => item.Name, StringComparer.Ordinal)
             .ToArray();
-        types = FinalizeNamedUnionTypes(types);
+        types = FinalizeNamedUnionTypes(types, configuration);
 
         var methods = sections
             .Where(static item => item.Section.Classification == "method")
-            .Select(item => NormalizeMethod(item.Section, knownTypeNames))
+            .Select(item => NormalizeMethod(item.Section, knownTypeNames, configuration))
             .OrderBy(static item => item.Name, StringComparer.Ordinal)
             .ToArray();
 
-        var abstractions = BuildAbstractions(types, methods, knownTypeNames);
-        var constantGroups = TelegramConstantGroupExtractor.Extract(types);
+        var abstractions = BuildAbstractions(types, methods, knownTypeNames, configuration);
+        var constantGroups = TelegramConstantGroupExtractor.Extract(types, configuration);
 
-        return new NormalizedTelegramSchema(
+        var normalized = new NormalizedTelegramSchema(
             SchemaMetadataFactory.CreateNormalized(raw.Metadata),
             types,
             methods,
             abstractions,
             constantGroups);
+
+        return normalized with
+        {
+            Metadata = normalized.Metadata with
+            {
+                SemanticFingerprint = SemanticFingerprintFactory.Create(normalized)
+            }
+        };
     }
 
-    private static NormalizedTelegramType NormalizeType(RawTelegramSection section, IReadOnlySet<string> knownTypeNames)
+    private static NormalizedTelegramType NormalizeType(
+        RawTelegramSection section,
+        IReadOnlySet<string> knownTypeNames,
+        GeneratorConfiguration configuration)
     {
         var typeName = ToPascalCase(section.Title);
         var fieldTable = GetFirstTable(section, "Field");
         var properties = fieldTable is null
             ? Array.Empty<NormalizedTelegramProperty>()
-            : fieldTable.Rows.Select(row => NormalizeField(row, typeName, knownTypeNames)).ToArray();
+            : fieldTable.Rows.Select(row => NormalizeField(row, typeName, knownTypeNames, configuration)).ToArray();
 
         var paragraphs = GetParagraphs(section);
         var summary = paragraphs.Length == 0 ? string.Empty : paragraphs[0];
         var remarks = GetRemarks(section);
         var unionMembers = ExtractUnionMembers(section, knownTypeNames);
         var unionCases = unionMembers
-            .Select(member => BuildUnionCase(member, knownTypeNames, discriminatorProperty: null))
+            .Select(member => BuildUnionCase(member, knownTypeNames, discriminatorProperty: null, configuration))
             .ToArray();
 
         return new NormalizedTelegramType(
@@ -99,18 +113,25 @@ internal static class TelegramSchemaNormalizer
             properties);
     }
 
-    private static NormalizedTelegramMethod NormalizeMethod(RawTelegramSection section, IReadOnlySet<string> knownTypeNames)
+    private static NormalizedTelegramMethod NormalizeMethod(
+        RawTelegramSection section,
+        IReadOnlySet<string> knownTypeNames,
+        GeneratorConfiguration configuration)
     {
         var parameterTable = GetFirstTable(section, "Parameter");
         var parameters = parameterTable is null
             ? Array.Empty<NormalizedTelegramProperty>()
-            : parameterTable.Rows.Select(row => NormalizeParameter(row, knownTypeNames)).ToArray();
+            : parameterTable.Rows.Select(row => NormalizeParameter(row, knownTypeNames, configuration)).ToArray();
 
         var summaryBlock = GetSummaryBlock(section);
         var summary = summaryBlock?.Text ?? string.Empty;
         var resultExpression = ExtractResultExpression(summaryBlock, knownTypeNames);
         var rawResultType = resultExpression.Text;
-        var resultType = MapTypeExpression(resultExpression, forMethodResult: true);
+        var resultType = MapTypeExpression(
+            resultExpression,
+            configuration,
+            forMethodResult: true,
+            knownTypeNames: knownTypeNames);
         var remarks = GetRemarks(section);
 
         return new NormalizedTelegramMethod(
@@ -125,7 +146,11 @@ internal static class TelegramSchemaNormalizer
             parameters);
     }
 
-    private static NormalizedTelegramProperty NormalizeField(RawTelegramRow row, string containingTypeName, IReadOnlySet<string> knownTypeNames)
+    private static NormalizedTelegramProperty NormalizeField(
+        RawTelegramRow row,
+        string containingTypeName,
+        IReadOnlySet<string> knownTypeNames,
+        GeneratorConfiguration configuration)
     {
         var telegramName = row.Cells[0].Text;
         var rawType = row.Cells[1].Text;
@@ -138,13 +163,16 @@ internal static class TelegramSchemaNormalizer
             telegramName,
             expression.Text,
             ToNormalizedExpression(expression),
-            ApplyOptionality(MapTypeExpression(expression), required),
+            ApplyOptionality(MapTypeExpression(expression, configuration, knownTypeNames: knownTypeNames), required),
             required,
             ExtractLiteralValue(telegramName, rawType, required, description),
             TrimOptionalPrefix(description));
     }
 
-    private static NormalizedTelegramProperty NormalizeParameter(RawTelegramRow row, IReadOnlySet<string> knownTypeNames)
+    private static NormalizedTelegramProperty NormalizeParameter(
+        RawTelegramRow row,
+        IReadOnlySet<string> knownTypeNames,
+        GeneratorConfiguration configuration)
     {
         var telegramName = row.Cells[0].Text;
         var rawType = row.Cells[1].Text;
@@ -158,7 +186,7 @@ internal static class TelegramSchemaNormalizer
             telegramName,
             expression.Text,
             ToNormalizedExpression(expression),
-            ApplyOptionality(MapTypeExpression(expression), required),
+            ApplyOptionality(MapTypeExpression(expression, configuration, knownTypeNames: knownTypeNames), required),
             required,
             ExtractLiteralValue(telegramName, rawType, required, description),
             TrimOptionalPrefix(description));
@@ -347,7 +375,8 @@ internal static class TelegramSchemaNormalizer
     private static NormalizedTelegramAbstraction[] BuildAbstractions(
         NormalizedTelegramType[] types,
         NormalizedTelegramMethod[] methods,
-        HashSet<string> knownTypeNames)
+        HashSet<string> knownTypeNames,
+        GeneratorConfiguration configuration)
     {
         var typesByName = types.ToDictionary(static type => type.Name, StringComparer.Ordinal);
         var expressions = types
@@ -374,14 +403,14 @@ internal static class TelegramSchemaNormalizer
                 .ToArray();
 
             abstractions.Add(new(
-                ToAbstractionName(expression.Text, members),
+                ToAbstractionName(expression.Text, members, knownTypeNames, configuration),
                 $"Represents the Telegram Bot API type expression '{expression.Text}'.",
                 "union",
                 expression.Text,
                 DetermineValueShape(members, knownTypeNames),
                 members,
                 members
-                    .Select(member => BuildUnionCase(member, knownTypeNames, discriminatorProperty: null))
+                    .Select(member => BuildUnionCase(member, knownTypeNames, discriminatorProperty: null, configuration))
                     .Select(unionCase => EnrichAnonymousUnionCase(unionCase, typesByName))
                     .ToArray()));
         }
@@ -450,11 +479,12 @@ internal static class TelegramSchemaNormalizer
     private static NormalizedTelegramUnionCase BuildUnionCase(
         string rawMember,
         IReadOnlySet<string> knownTypeNames,
-        string? discriminatorProperty)
+        string? discriminatorProperty,
+        GeneratorConfiguration configuration)
     {
         var expression = TelegramTypeExpressionParser.Parse(rawMember, knownTypeNames);
         var normalizedExpression = ToNormalizedExpression(expression);
-        var csharpType = MapTypeExpression(expression);
+        var csharpType = MapTypeExpression(expression, configuration, knownTypeNames: knownTypeNames);
 
         return new NormalizedTelegramUnionCase(
             ToUnionCaseName(expression),
@@ -654,7 +684,9 @@ internal static class TelegramSchemaNormalizer
         return null;
     }
 
-    private static NormalizedTelegramType[] FinalizeNamedUnionTypes(NormalizedTelegramType[] initialTypes)
+    private static NormalizedTelegramType[] FinalizeNamedUnionTypes(
+        NormalizedTelegramType[] initialTypes,
+        GeneratorConfiguration configuration)
     {
         var typesByName = initialTypes.ToDictionary(static type => type.Name, StringComparer.Ordinal);
         var finalizedTypes = new List<NormalizedTelegramType>(initialTypes.Length);
@@ -667,15 +699,15 @@ internal static class TelegramSchemaNormalizer
                 continue;
             }
 
-            var strategy = DetermineNamedUnionStrategy(type, typesByName);
+            var strategy = DetermineNamedUnionStrategy(type, typesByName, configuration);
             var unionCases = type.UnionMembers
-                .Select(member => BuildUnionCase(member, typesByName.Keys.ToHashSet(StringComparer.Ordinal), strategy.DiscriminatorProperty))
+                .Select(member => BuildUnionCase(member, typesByName.Keys.ToHashSet(StringComparer.Ordinal), strategy.DiscriminatorProperty, configuration))
                 .Select(unionCase => EnrichUnionCase(unionCase, strategy, typesByName))
                 .ToArray();
 
             finalizedTypes.Add(type with
             {
-                NamedUnionStrategy = strategy.Strategy,
+                NamedUnionStrategy = ToSchemaStrategy(strategy.Strategy),
                 NamedUnionDiscriminatorProperty = strategy.DiscriminatorProperty,
                 UnionCases = unionCases
             });
@@ -684,13 +716,21 @@ internal static class TelegramSchemaNormalizer
         return finalizedTypes.ToArray();
     }
 
-    private static (string Strategy, string? DiscriminatorProperty) DetermineNamedUnionStrategy(
+    private static (NamedUnionStrategy Strategy, string? DiscriminatorProperty) DetermineNamedUnionStrategy(
         NormalizedTelegramType type,
-        Dictionary<string, NormalizedTelegramType> typesByName)
+        Dictionary<string, NormalizedTelegramType> typesByName,
+        GeneratorConfiguration configuration)
     {
+        var configuredRule = configuration.NamedUnions
+            .SingleOrDefault(rule => rule.TypeName.Equals(type.Name, StringComparison.Ordinal));
+        if (configuredRule is not null)
+        {
+            return (configuredRule.Strategy, configuredRule.DiscriminatorProperty);
+        }
+
         if (type.Name == "MaybeInaccessibleMessage")
         {
-            return ("maybe-inaccessible-message", null);
+            return (NamedUnionStrategy.MaybeInaccessibleMessage, null);
         }
 
         var memberTypes = type.UnionMembers
@@ -698,36 +738,38 @@ internal static class TelegramSchemaNormalizer
             .Select(memberName => typesByName[memberName])
             .ToArray();
 
-        foreach (var propertyName in new[] { "type", "source" })
+        foreach (var propertyName in configuration.NamedUnionDiscriminatorProperties)
         {
             if (memberTypes.Length > 0 &&
                 memberTypes.All(memberType => memberType.Properties.Any(property => property.TelegramName == propertyName && property.LiteralValue is not null)))
             {
-                return ("property-discriminator", propertyName);
-            }
-        }
-
-        foreach (var propertyName in new[] { "status" })
-        {
-            if (memberTypes.Length > 0 &&
-                memberTypes.All(memberType => memberType.Properties.Any(property => property.TelegramName == propertyName && property.LiteralValue is not null)))
-            {
-                return ("property-discriminator", propertyName);
+                return (NamedUnionStrategy.PropertyDiscriminator, propertyName);
             }
         }
 
         if (memberTypes.Length > 0 && HasUniqueRequiredPropertySignatures(memberTypes))
         {
-            return ("required-properties", null);
+            return (NamedUnionStrategy.RequiredProperties, null);
         }
 
-        throw new InvalidOperationException(
+        throw new GeneratorConfigurationException(
             $"Named union type '{type.Name}' does not match a supported discriminator or required-property strategy.");
+    }
+
+    private static string ToSchemaStrategy(NamedUnionStrategy strategy)
+    {
+        return strategy switch
+        {
+            NamedUnionStrategy.MaybeInaccessibleMessage => "maybe-inaccessible-message",
+            NamedUnionStrategy.PropertyDiscriminator => "property-discriminator",
+            NamedUnionStrategy.RequiredProperties => "required-properties",
+            _ => throw new ArgumentOutOfRangeException(nameof(strategy), strategy, "Unknown named union strategy.")
+        };
     }
 
     private static NormalizedTelegramUnionCase EnrichUnionCase(
         NormalizedTelegramUnionCase unionCase,
-        (string Strategy, string? DiscriminatorProperty) strategy,
+        (NamedUnionStrategy Strategy, string? DiscriminatorProperty) strategy,
         Dictionary<string, NormalizedTelegramType> typesByName)
     {
         if (!typesByName.TryGetValue(unionCase.RawType, out var memberType))
@@ -735,7 +777,7 @@ internal static class TelegramSchemaNormalizer
             return unionCase;
         }
 
-        if (strategy.Strategy == "maybe-inaccessible-message")
+        if (strategy.Strategy == NamedUnionStrategy.MaybeInaccessibleMessage)
         {
             return unionCase.RawType switch
             {
@@ -745,7 +787,7 @@ internal static class TelegramSchemaNormalizer
             };
         }
 
-        if (strategy.Strategy == "property-discriminator")
+        if (strategy.Strategy == NamedUnionStrategy.PropertyDiscriminator)
         {
             var discriminatorProperty = strategy.DiscriminatorProperty
                 ?? throw new InvalidOperationException($"The union case '{unionCase.RawType}' is missing discriminator property metadata.");
@@ -769,7 +811,7 @@ internal static class TelegramSchemaNormalizer
             };
         }
 
-        if (strategy.Strategy == "required-properties")
+        if (strategy.Strategy == NamedUnionStrategy.RequiredProperties)
         {
             return unionCase with
             {
@@ -858,7 +900,11 @@ internal static class TelegramSchemaNormalizer
                signatures.Distinct(StringComparer.Ordinal).Count() == signatures.Length;
     }
 
-    private static string MapTypeExpression(TelegramTypeExpression expression, bool forMethodResult = false)
+    private static string MapTypeExpression(
+        TelegramTypeExpression expression,
+        GeneratorConfiguration configuration,
+        bool forMethodResult = false,
+        IReadOnlySet<string>? knownTypeNames = null)
     {
         var typeName = expression switch
         {
@@ -871,8 +917,12 @@ internal static class TelegramSchemaNormalizer
                 _ => "object"
             },
             NamedTelegramTypeExpression named => named.Name,
-            ArrayTelegramTypeExpression array => $"IReadOnlyList<{MapTypeExpression(array.ElementType)}>",
-            UnionTelegramTypeExpression union => ToAbstractionName(union.Text, union.Members.Select(static member => NormalizeUnionMember(member.Text)).ToArray()),
+            ArrayTelegramTypeExpression array => $"IReadOnlyList<{MapTypeExpression(array.ElementType, configuration, knownTypeNames: knownTypeNames)}>",
+            UnionTelegramTypeExpression union => ToAbstractionName(
+                union.Text,
+                union.Members.Select(static member => NormalizeUnionMember(member.Text)).ToArray(),
+                knownTypeNames ?? new HashSet<string>(StringComparer.Ordinal),
+                configuration),
             UnresolvedTelegramTypeExpression => forMethodResult ? "object" : "object",
             _ => "object"
         };
@@ -909,16 +959,29 @@ internal static class TelegramSchemaNormalizer
         return token is "Integer" or "String" or "Boolean" or "Float";
     }
 
-    private static string ToAbstractionName(string expression, IReadOnlyList<string> members)
+    private static string ToAbstractionName(
+        string expression,
+        IReadOnlyList<string> members,
+        IReadOnlySet<string> knownTypeNames,
+        GeneratorConfiguration configuration)
     {
-        if (TelegramUnionNamingRegistry.TryGetSemanticAnonymousUnionName(expression, out var semanticName))
+        var matchingRules = configuration.AnonymousUnions
+            .Where(rule => rule.Members.IsSubsetOf(members) &&
+                           members.All(member => knownTypeNames.Contains(member) || IsPrimitiveToken(member)))
+            .ToArray();
+
+        if (matchingRules.Length > 1)
         {
-            return semanticName;
+            throw new GeneratorConfigurationException(
+                $"Anonymous union '{expression}' matches multiple semantic configuration rules: " +
+                string.Join(", ", matchingRules.Select(static rule => rule.PublicName)) + ".");
         }
 
-        if (expression.Equals("InlineKeyboardMarkup or ReplyKeyboardMarkup or ReplyKeyboardRemove or ForceReply", StringComparison.Ordinal))
+        if (matchingRules.Length == 1 &&
+            (matchingRules[0].EvolutionPolicy == UnionEvolutionPolicy.AdditionsOnly ||
+             matchingRules[0].Members.SetEquals(members)))
         {
-            return "ReplyMarkup";
+            return matchingRules[0].PublicName;
         }
 
         var concatenatedName = string.Concat(members.Select(ToPascalCase));

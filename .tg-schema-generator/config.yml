@@ -1,0 +1,76 @@
+anonymousUnions:
+  - publicName: InputMediaGroupItem
+    members:
+      - InputMediaAudio
+      - InputMediaLivePhoto
+      - InputMediaPhoto
+      - InputMediaVideo
+    evolution: additions-only
+  - publicName: InputRichMessageMediaItem
+    members:
+      - InputMediaAnimation
+      - InputMediaAudio
+      - InputMediaPhoto
+      - InputMediaVideo
+      - InputMediaVoiceNote
+    evolution: additions-only
+  - publicName: ReplyMarkup
+    members:
+      - InlineKeyboardMarkup
+      - ReplyKeyboardMarkup
+      - ReplyKeyboardRemove
+      - ForceReply
+    evolution: exact
+
+namedUnions:
+  - typeName: MaybeInaccessibleMessage
+    strategy: maybe-inaccessible-message
+
+namedUnionDiscriminatorProperties:
+  - type
+  - source
+  - status
+
+constantGroups:
+  - name: ButtonStyles
+    summary: Known Telegram Bot API button style values.
+    valuePattern: "[\\\"“'](?<value>[a-zA-Z0-9_:-]+)[\\\"”']"
+    sources:
+      - typeName: InlineKeyboardButton
+        propertyName: style
+      - typeName: KeyboardButton
+        propertyName: style
+  - name: ChatTypes
+    summary: Known Telegram Bot API chat type values.
+    valuePattern: "[\\\"“'](?<value>[a-zA-Z0-9_:-]+)[\\\"”']"
+    sources:
+      - typeName: Chat
+        propertyName: type
+      - typeName: sender
+        propertyName: type
+    staticValues:
+      - sender
+  - name: ReactionTypes
+    summary: Known Telegram Bot API reaction type values.
+    valuePattern: "[\\\"“'](?<value>[a-zA-Z0-9_:-]+)[\\\"”']"
+    sources:
+      - typeName: ReactionTypeEmoji
+        propertyName: type
+      - typeName: ReactionTypeCustomEmoji
+        propertyName: type
+      - typeName: ReactionTypePaid
+        propertyName: type
+
+discriminatorNames:
+  - propertyName: source
+    ownerTypeSuffix: Source
+    groupNameSuffix: Sources
+  - propertyName: status
+    ownerTypeSuffix: Status
+    groupNameSuffix: Statuses
+  - propertyName: style
+    ownerTypeSuffix: Style
+    groupNameSuffix: Styles
+  - propertyName: type
+    ownerTypeSuffix: Type
+    groupNameSuffix: Types
