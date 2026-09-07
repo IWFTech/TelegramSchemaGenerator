@@ -97,7 +97,7 @@ jobs:
 
       - name: Create schema configuration issue
         if: ${{ steps.check.outputs.schema_error == 'true' }}
-        uses: actions/github-script@v7
+        uses: actions/github-script@v9
         env:
           CHECK_PATH: telegram-bot-api-check.json
         with:
